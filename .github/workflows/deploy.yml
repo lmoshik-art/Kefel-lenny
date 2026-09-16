@@ -1,0 +1,58 @@
+name: פריסה ל-GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# פריסה אחת בכל רגע נתון, בלי לבטל פריסה שכבר רצה
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: משיכת המאגר
+        uses: actions/checkout@v4
+
+      - name: התקנת Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: התקנת חבילות
+        run: npm ci
+
+      - name: בנייה לייצור
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: הגדרת GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: העלאת תוצרי הבנייה
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: פרסום האתר
+        id: deployment
+        uses: actions/deploy-pages@v4

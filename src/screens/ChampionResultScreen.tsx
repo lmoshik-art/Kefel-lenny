@@ -5,6 +5,7 @@ import { sounds } from '../lib/audio'
 import { ChampionResult } from '../lib/gameState'
 import { TableNumber } from '../types'
 import { ROUND_LENGTH } from './QuizStage'
+import { asset } from '../lib/assets'
 
 interface ChampionResultScreenProps {
   table: TableNumber
@@ -40,9 +41,9 @@ export function ChampionResultScreen({
 
       {result.passed ? (
         <div className="stack">
-          <img className="vault-img" src="/assets/trophy.png" alt="גביע" />
+          <img className="vault-img" src={asset('trophy.png')} alt="גביע" />
           <p className="speech reward-row">
-            <img src="/assets/coins-small.png" alt="" aria-hidden="true" />
+            <img src={asset('coins-small.png')} alt="" aria-hidden="true" />
             <span>
               {childName}, ענית נכון על כל השאלות. נוספו לחיסכון שלך {result.reward} ₪.
             </span>

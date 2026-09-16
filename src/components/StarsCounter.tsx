@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { asset } from '../lib/assets'
 
 export function StarsCounter({ stars }: { stars: number }) {
   const [bump, setBump] = useState(false)
@@ -12,7 +13,7 @@ export function StarsCounter({ stars }: { stars: number }) {
 
   return (
     <div className={`stars-counter${bump ? ' bump' : ''}`} id="stars-counter">
-      <img src="/assets/medal.png" alt="" aria-hidden="true" />
+      <img src={asset('medal.png')} alt="" aria-hidden="true" />
       <span>{stars}</span>
     </div>
   )

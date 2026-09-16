@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { asset } from '../lib/assets'
 
 export interface FlyBurst {
   id: number
@@ -9,8 +10,8 @@ export interface FlyBurst {
 }
 
 const IMAGES: Record<FlyBurst['kind'], string> = {
-  star: '/assets/medal.png',
-  coin: '/assets/coin.png',
+  star: asset('medal.png'),
+  coin: asset('coin.png'),
 }
 
 /** כוכבים ומטבעות שמתעופפים מנקודת הלחיצה אל מונה הכוכבים שבראש המסך */

@@ -5,6 +5,7 @@ import { sounds, unlockAudio } from '../lib/audio'
 import { useGame } from '../lib/gameState'
 import { isTableLearned } from '../lib/learning'
 import { TABLES, TableNumber } from '../types'
+import { asset } from '../lib/assets'
 
 interface HomeScreenProps {
   onPickTable: (table: TableNumber) => void
@@ -58,7 +59,7 @@ export function HomeScreen({ onPickTable, onOpenSavings, onOpenParent }: HomeScr
           <button
             key={table}
             className="table-card"
-            style={{ backgroundImage: `url(/assets/bg-${table}.png)` }}
+            style={{ backgroundImage: `url(${asset(`bg-${table}.png`)})` }}
             onClick={() => {
               unlockAudio()
               sounds.tap()
@@ -68,7 +69,7 @@ export function HomeScreen({ onPickTable, onOpenSavings, onOpenParent }: HomeScr
           >
             <span>{table}</span>
             {isTableLearned(state, table) && (
-              <img className="badge" src="/assets/trophy.png" alt="" aria-hidden="true" />
+              <img className="badge" src={asset('trophy.png')} alt="" aria-hidden="true" />
             )}
           </button>
         ))}
@@ -82,7 +83,7 @@ export function HomeScreen({ onPickTable, onOpenSavings, onOpenParent }: HomeScr
           onOpenSavings()
         }}
       >
-        <img src="/assets/chest.png" alt="" aria-hidden="true" width={38} height={38} />
+        <img src={asset('chest.png')} alt="" aria-hidden="true" width={38} height={38} />
         החיסכון שלי
       </button>
     </div>

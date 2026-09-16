@@ -6,6 +6,7 @@ import { sounds } from '../lib/audio'
 import { useGame } from '../lib/gameState'
 import { learnedTables } from '../lib/learning'
 import { TABLES } from '../types'
+import { asset } from '../lib/assets'
 
 export function SavingsScreen({ onHome }: { onHome: () => void }) {
   const { state, vaultStatus } = useGame()
@@ -39,7 +40,7 @@ export function SavingsScreen({ onHome }: { onHome: () => void }) {
 
       {pastHalfway && (
         <div className="coins-strip">
-          <img src="/assets/coins-big.png" alt="ערמת מטבעות" />
+          <img src={asset('coins-big.png')} alt="ערמת מטבעות" />
           <span>{moneyDone ? 'הגעת ליעד המלא' : 'עברת את חצי הדרך אל היעד'}</span>
         </div>
       )}
@@ -47,7 +48,7 @@ export function SavingsScreen({ onHome }: { onHome: () => void }) {
       <div className="vault-card">
         {vaultStatus === 'open' ? (
           <>
-            <img className="vault-img burst" src="/assets/chest.png" alt="הכספת נפתחה" />
+            <img className="vault-img burst" src={asset('chest.png')} alt="הכספת נפתחה" />
             <div className="big-amount">{state.savedAmount} ₪</div>
             <p className="speech">הכספת נפתחה! הכסף שלך והרווחת אותו בעבודה אמיתית.</p>
             <Hero mood="celebrate" size={180} />
@@ -56,7 +57,7 @@ export function SavingsScreen({ onHome }: { onHome: () => void }) {
           <>
             <img
               className={`vault-img${vaultStatus === 'ready' ? ' shake' : ''}`}
-              src="/assets/gift.png"
+              src={asset('gift.png')}
               alt="המתנה שעדיין סגורה"
             />
             <div className="big-amount">{state.savedAmount} ₪</div>

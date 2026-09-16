@@ -1,3 +1,5 @@
+import { asset } from '../lib/assets'
+
 interface SavingsMeterProps {
   saved: number
   goal: number
@@ -13,7 +15,7 @@ export function SavingsMeter({ saved, goal, compact = false }: SavingsMeterProps
   return (
     <div className="meter">
       <div className="meter-head">
-        <img className="meter-jar" src="/assets/jar.png" alt="צנצנת החיסכון" />
+        <img className="meter-jar" src={asset('jar.png')} alt="צנצנת החיסכון" />
         <div>
           <div className="meter-amount">
             {saved} ₪ מתוך {goal} ₪
@@ -32,7 +34,7 @@ export function SavingsMeter({ saved, goal, compact = false }: SavingsMeterProps
         <div className="meter-fill" style={{ width: `${percent}%` }} />
         <img
           className="meter-hero"
-          src="/assets/hero.png"
+          src={asset('hero.png')}
           alt=""
           aria-hidden="true"
           style={{ insetInlineStart: `calc(${markerPercent}% - 22px)` }}

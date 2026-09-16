@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Hero } from '../components/Hero'
 import { sounds, unlockAudio } from '../lib/audio'
 import { TableNumber } from '../types'
+import { asset } from '../lib/assets'
 
 /** שלושת התרגילים שמוצגים בהיכרות הוויזואלית */
 const DEMO_MULTIPLIERS = [2, 3, 5]
 
-const ITEMS = ['/assets/coin.png', '/assets/medal.png', '/assets/trophy.png']
+const ITEMS = [asset('coin.png'), asset('medal.png'), asset('trophy.png')]
 
 export function IntroStage({ table, onDone }: { table: TableNumber; onDone: () => void }) {
   const [index, setIndex] = useState(0)

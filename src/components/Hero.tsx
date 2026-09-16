@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { HeroMood } from '../types'
+import { asset } from '../lib/assets'
 
 const SOURCES: Record<HeroMood, string> = {
-  idle: '/assets/hero.png',
-  cheer: '/assets/hero-cheer.png',
-  encourage: '/assets/hero-encourage.png',
-  celebrate: '/assets/hero-celebrate.png',
+  idle: asset('hero.png'),
+  cheer: asset('hero-cheer.png'),
+  encourage: asset('hero-encourage.png'),
+  celebrate: asset('hero-celebrate.png'),
 }
 
 const ALTS: Record<HeroMood, string> = {
