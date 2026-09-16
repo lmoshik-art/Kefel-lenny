@@ -1,0 +1,35 @@
+name: הורדת נכסי האפליקציה
+
+# מופעל בלחיצה ידנית מדף Actions, בלי צורך במחשב
+on:
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: משיכת המאגר
+        uses: actions/checkout@v4
+
+      - name: התקנת Pillow ליצירת האייקונים
+        run: pip install pillow
+
+      - name: הורדת 21 הנכסים ויצירת אייקוני ה-PWA
+        run: bash scripts/fetch-assets.sh
+
+      - name: בדיקת גודל הקבצים שירדו
+        run: ls -l public/assets public/*.png
+
+      - name: שמירת הקבצים במאגר
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/assets public/apple-touch-icon.png public/icon-192.png public/icon-512.png
+          if git diff --cached --quiet; then
+            echo "אין שינוי בנכסים"
+          else
+            git commit -m "עדכון נכסי האפליקציה לקבצים המקוריים"
+            git push
+          fi
