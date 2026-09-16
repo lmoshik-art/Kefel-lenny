@@ -272,6 +272,7 @@ button {
 
 .meter-track {
   position: relative;
+  margin-top: 34px;
   height: 26px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
@@ -289,8 +290,11 @@ button {
 
 .meter-hero {
   position: absolute;
-  top: -30px;
-  width: 46px;
+  top: -52px;
+  width: 44px;
+  height: 58px;
+  object-fit: contain;
+  object-position: bottom;
   transition: inset-inline-start 700ms cubic-bezier(0.22, 1, 0.36, 1);
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
 }

@@ -39,5 +39,8 @@ if [ "$failed" -gt 0 ]; then
   exit 1
 fi
 
-echo "כל 21 הקבצים ירדו. מייצר אייקוני PWA מתוך coin.png..."
+echo "כל 21 הקבצים ירדו. מכין אותם לשימוש באפליקציה..."
+python3 "$ROOT/scripts/optimize-assets.py"
+
+echo "מייצר אייקוני PWA מתוך coin.png..."
 python3 "$ROOT/scripts/make-icons.py"

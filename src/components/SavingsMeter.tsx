@@ -35,7 +35,7 @@ export function SavingsMeter({ saved, goal, compact = false }: SavingsMeterProps
           src="/assets/hero.png"
           alt=""
           aria-hidden="true"
-          style={{ insetInlineStart: `calc(${markerPercent}% - 23px)` }}
+          style={{ insetInlineStart: `calc(${markerPercent}% - 22px)` }}
         />
       </div>
     </div>

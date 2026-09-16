@@ -13,10 +13,10 @@ jobs:
       - name: משיכת המאגר
         uses: actions/checkout@v4
 
-      - name: התקנת Pillow ליצירת האייקונים
-        run: pip install pillow
+      - name: התקנת ספריות עיבוד התמונה
+        run: pip install pillow numpy
 
-      - name: הורדת 21 הנכסים ויצירת אייקוני ה-PWA
+      - name: הורדת 21 הנכסים, הכנתם ויצירת אייקוני ה-PWA
         run: bash scripts/fetch-assets.sh
 
       - name: בדיקת גודל הקבצים שירדו

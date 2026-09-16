@@ -40,14 +40,14 @@ export function SavingsScreen({ onHome }: { onHome: () => void }) {
       {pastHalfway && (
         <div className="coins-strip">
           <img src="/assets/coins-big.png" alt="ערמת מטבעות" />
-          <span>עברת את חצי הדרך אל היעד</span>
+          <span>{moneyDone ? 'הגעת ליעד המלא' : 'עברת את חצי הדרך אל היעד'}</span>
         </div>
       )}
 
       <div className="vault-card">
         {vaultStatus === 'open' ? (
           <>
-            <img className="vault-img burst" src="/assets/gift.png" alt="הכספת נפתחה" />
+            <img className="vault-img burst" src="/assets/chest.png" alt="הכספת נפתחה" />
             <div className="big-amount">{state.savedAmount} ₪</div>
             <p className="speech">הכספת נפתחה! הכסף שלך והרווחת אותו בעבודה אמיתית.</p>
             <Hero mood="celebrate" size={180} />
@@ -56,8 +56,8 @@ export function SavingsScreen({ onHome }: { onHome: () => void }) {
           <>
             <img
               className={`vault-img${vaultStatus === 'ready' ? ' shake' : ''}`}
-              src="/assets/chest.png"
-              alt="כספת נעולה"
+              src="/assets/gift.png"
+              alt="המתנה שעדיין סגורה"
             />
             <div className="big-amount">{state.savedAmount} ₪</div>
             <p className="meter-label">
