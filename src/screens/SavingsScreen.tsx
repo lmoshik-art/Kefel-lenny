@@ -14,6 +14,8 @@ export function SavingsScreen({ onHome }: { onHome: () => void }) {
   const moneyDone = state.savedAmount >= state.goalAmount
   const tablesDone = learned.length === TABLES.length
   const left = Math.max(0, state.goalAmount - state.savedAmount)
+  /** ערמת המטבעות הגדולה מופיעה אחרי חציית מחצית הדרך אל היעד */
+  const pastHalfway = state.goalAmount > 0 && state.savedAmount >= state.goalAmount / 2
 
   useEffect(() => {
     if (vaultStatus !== 'open') return
@@ -34,6 +36,13 @@ export function SavingsScreen({ onHome }: { onHome: () => void }) {
       </div>
 
       <SavingsMeter saved={state.savedAmount} goal={state.goalAmount} />
+
+      {pastHalfway && (
+        <div className="coins-strip">
+          <img src="/assets/coins-big.png" alt="ערמת מטבעות" />
+          <span>עברת את חצי הדרך אל היעד</span>
+        </div>
+      )}
 
       <div className="vault-card">
         {vaultStatus === 'open' ? (

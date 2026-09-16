@@ -572,6 +572,51 @@ button {
   justify-content: center;
 }
 
+.reward-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.reward-row img {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.coins-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(20, 6, 36, 0.8);
+  border: 2px solid rgba(255, 198, 61, 0.4);
+  border-radius: 22px;
+  padding: 10px 14px;
+  font-size: 18px;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.coins-strip img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  animation: coins-in 600ms ease both;
+}
+
+@keyframes coins-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* כספת וחיסכון */
 .vault-card {
   text-align: center;

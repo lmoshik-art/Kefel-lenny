@@ -41,8 +41,11 @@ export function ChampionResultScreen({
       {result.passed ? (
         <div className="stack">
           <img className="vault-img" src="/assets/trophy.png" alt="גביע" />
-          <p className="speech">
-            {childName}, ענית נכון על כל השאלות. נוספו לחיסכון שלך {result.reward} ₪.
+          <p className="speech reward-row">
+            <img src="/assets/coins-small.png" alt="" aria-hidden="true" />
+            <span>
+              {childName}, ענית נכון על כל השאלות. נוספו לחיסכון שלך {result.reward} ₪.
+            </span>
           </p>
           {result.learnedNow ? (
             <p className="speech">הטבלה של {table} מסומנת עכשיו כנלמדה. כל הכבוד!</p>
