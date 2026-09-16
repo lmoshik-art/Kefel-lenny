@@ -6,17 +6,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# פריסה אחת בכל רגע נתון, בלי לבטל פריסה שכבר רצה
+# פריסה אחת בכל רגע נתון
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: משיכת המאגר
@@ -36,23 +34,18 @@ jobs:
           VITE_BASE: /${{ github.event.repository.name }}/
         run: npm run build
 
-      - name: הגדרת GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: העלאת תוצרי הבנייה
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: פרסום האתר
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: פרסום תוצרי הבנייה לענף gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # מונע מ-Jekyll לדלג על קבצים, ומוסיף דף שגיאה שמחזיר לאפליקציה
+          touch dist/.nojekyll
+          cp dist/index.html dist/404.html
+          cd dist
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "פרסום האתר מתוך ${GITHUB_SHA}"
+          git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+          echo "הענף gh-pages עודכן"
