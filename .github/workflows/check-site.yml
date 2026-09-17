@@ -1,0 +1,26 @@
+name: בדיקת האתר החי
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: בדיקת הדף הראשי, המניפסט, ה-service worker ונכס גרפי
+        env:
+          SITE: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+        run: |
+          set -e
+          fail=0
+          for path in "/" "/manifest.webmanifest" "/sw.js" "/assets/hero.png" "/icon-192.png"; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -L "${SITE}${path}")
+            size=$(wc -c < /tmp/body)
+            echo "$code  ${size} bytes  ${path}"
+            [ "$code" = "200" ] || fail=1
+          done
+          echo "--- תוכן הדף הראשי ---"
+          curl -s -L "${SITE}/" | head -30
+          echo "--- כותרת המניפסט ---"
+          curl -s -L "${SITE}/manifest.webmanifest"
+          exit $fail
