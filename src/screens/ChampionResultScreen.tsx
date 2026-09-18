@@ -42,12 +42,19 @@ export function ChampionResultScreen({
       {result.passed ? (
         <div className="stack">
           <img className="vault-img" src={asset('trophy.png')} alt="גביע" />
-          <p className="speech reward-row">
-            <img src={asset('coins-small.png')} alt="" aria-hidden="true" />
-            <span>
-              {childName}, ענית נכון על כל השאלות. נוספו לחיסכון שלך {result.reward} ₪.
-            </span>
-          </p>
+          {result.alreadyPaidToday ? (
+            <p className="speech">
+              {childName}, ענית נכון על כל השאלות. את הכסף של הטבלה הזו כבר הרווחת היום, ובטבלה
+              אחרת מחכה לך עוד.
+            </p>
+          ) : (
+            <p className="speech reward-row">
+              <img src={asset('coins-small.png')} alt="" aria-hidden="true" />
+              <span>
+                {childName}, ענית נכון על כל השאלות. נוספו לחיסכון שלך {result.reward} ₪.
+              </span>
+            </p>
+          )}
           {result.learnedNow ? (
             <p className="speech">הטבלה של {table} מסומנת עכשיו כנלמדה. כל הכבוד!</p>
           ) : (

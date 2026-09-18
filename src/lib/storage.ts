@@ -10,7 +10,7 @@ export const REQUIRED_CHAMPION_DAYS = 2
 export const CHAMPION_PASS_SCORE = 5
 
 function emptyTable(): TableProgress {
-  return { introDone: false, bestScore: 0, championDays: [], parentApproved: false }
+  return { introDone: false, bestScore: 0, championDays: [], paidDays: [], parentApproved: false }
 }
 
 export function createInitialState(): SaveState {
@@ -39,6 +39,7 @@ function normalize(raw: Partial<SaveState>): SaveState {
       introDone: Boolean(saved?.introDone),
       bestScore: Number(saved?.bestScore ?? 0),
       championDays: Array.isArray(saved?.championDays) ? saved!.championDays : [],
+      paidDays: Array.isArray(saved?.paidDays) ? saved!.paidDays : [],
       parentApproved: Boolean(saved?.parentApproved),
     }
   }

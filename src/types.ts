@@ -19,6 +19,8 @@ export interface TableProgress {
   bestScore: number
   /** תאריכי מעבר שלב האלוף בציון גבוה, בפורמט YYYY-MM-DD */
   championDays: string[]
+  /** הימים שבהם כבר שולם תגמול כספי על הטבלה הזו, תשלום אחד לכל טבלה ביום */
+  paidDays: string[]
   /** סימון ידני של ההורה */
   parentApproved: boolean
 }

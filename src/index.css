@@ -340,6 +340,27 @@ button {
   transform: scale(0.96);
 }
 
+.table-card .coin-badge {
+  position: absolute;
+  top: 6px;
+  inset-inline-start: 6px;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  animation: coin-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes coin-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
 .table-card .badge {
   position: absolute;
   top: 6px;

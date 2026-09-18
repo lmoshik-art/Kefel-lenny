@@ -3,7 +3,8 @@ import { SavingsMeter } from '../components/SavingsMeter'
 import { StarsCounter } from '../components/StarsCounter'
 import { sounds, unlockAudio } from '../lib/audio'
 import { useGame } from '../lib/gameState'
-import { isTableLearned } from '../lib/learning'
+import { isRewardAvailableToday, isTableLearned } from '../lib/learning'
+import { todayKey } from '../lib/storage'
 import { TABLES, TableNumber } from '../types'
 import { asset } from '../lib/assets'
 
@@ -19,6 +20,7 @@ const LONG_PRESS_MS = 1200
 export function HomeScreen({ onPickTable, onOpenSavings, onOpenParent }: HomeScreenProps) {
   const { state, vaultStatus } = useGame()
   const pressTimer = useRef<number | null>(null)
+  const today = todayKey()
 
   function startPress() {
     pressTimer.current = window.setTimeout(() => {
@@ -65,11 +67,16 @@ export function HomeScreen({ onPickTable, onOpenSavings, onOpenParent }: HomeScr
               sounds.tap()
               onPickTable(table)
             }}
-            aria-label={`טבלת הכפל של ${table}${isTableLearned(state, table) ? ', הושלמה' : ''}`}
+            aria-label={`טבלת הכפל של ${table}${isTableLearned(state, table) ? ', הושלמה' : ''}${
+              isRewardAvailableToday(state, table, today) ? ', יש בה כסף להרוויח היום' : ''
+            }`}
           >
             <span>{table}</span>
             {isTableLearned(state, table) && (
               <img className="badge" src={asset('trophy.png')} alt="" aria-hidden="true" />
+            )}
+            {isRewardAvailableToday(state, table, today) && (
+              <img className="coin-badge" src={asset('coin.png')} alt="" aria-hidden="true" />
             )}
           </button>
         ))}

@@ -29,6 +29,8 @@ export interface ChampionResult {
   passed: boolean
   reward: number
   learnedNow: boolean
+  /** מעבר נוסף באותה טבלה באותו יום, שכבר אינו מזכה בכסף */
+  alreadyPaidToday: boolean
 }
 
 interface GameContextValue {
@@ -92,10 +94,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const passed = isChampionPass(score)
     const previous = latest.current
     const progress = previous.tables[table]
-    const reward = passed ? previous.rewardPerAchievement : 0
+    const today = todayKey()
+    // תגמול כספי אחד לכל טבלה בכל יום, כדי שחזרה על אותה טבלה לא תמלא את מד החיסכון
+    const alreadyPaidToday = progress.paidDays.includes(today)
+    const reward = passed && !alreadyPaidToday ? previous.rewardPerAchievement : 0
+    const paidDays = reward > 0 ? [...progress.paidDays, today] : progress.paidDays
     const daysBefore = new Set(progress.championDays)
     const daysAfter = new Set(daysBefore)
-    if (passed) daysAfter.add(todayKey())
+    if (passed) daysAfter.add(today)
     const learnedNow =
       daysBefore.size < REQUIRED_CHAMPION_DAYS && daysAfter.size >= REQUIRED_CHAMPION_DAYS
 
@@ -107,6 +113,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           ...progress,
           bestScore: Math.max(progress.bestScore, score),
           championDays: [...daysAfter],
+          paidDays,
         },
       },
       savedAmount: Math.min(previous.goalAmount, previous.savedAmount + reward),
@@ -114,7 +121,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     latest.current = next
     setState(next)
 
-    return { passed, reward, learnedNow }
+    return { passed, reward, learnedNow, alreadyPaidToday: passed && alreadyPaidToday }
   }, [])
 
   const addMoney = useCallback((amount: number) => {

@@ -107,6 +107,11 @@ export function starsForAnswer(correct: boolean, elapsedMs: number): number {
   return elapsedMs <= FAST_ANSWER_MS ? BASE_STARS + FAST_BONUS_STARS : BASE_STARS
 }
 
+/** האם התגמול הכספי של הטבלה עדיין זמין היום */
+export function isRewardAvailableToday(state: SaveState, table: TableNumber, today: string): boolean {
+  return !state.tables[table]?.paidDays.includes(today)
+}
+
 export function isTableLearned(state: SaveState, table: TableNumber): boolean {
   const progress = state.tables[table]
   if (!progress) return false
