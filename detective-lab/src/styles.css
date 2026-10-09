@@ -20,8 +20,8 @@
   --stamp: #a3261b;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   --radius: 14px;
-  --font: 'Assistant', 'Arial Hebrew', 'Segoe UI', Arial, sans-serif;
-  --display: 'Frank Ruhl Libre', 'Times New Roman', serif;
+  --font: 'Heebo', 'Arial Hebrew', 'Segoe UI', Arial, sans-serif;
+  --display: 'Heebo', 'Arial Hebrew', 'Segoe UI', Arial, sans-serif;
   color-scheme: dark;
 }
 
@@ -254,6 +254,7 @@ select {
 .title,
 .case-title {
   font-family: var(--display);
+  font-weight: 800;
   font-size: clamp(1.7rem, 5vw, 2.5rem);
   line-height: 1.2;
   margin: 4px 0 10px;
