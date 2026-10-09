@@ -16,6 +16,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,svg,woff,woff2,ico}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallback: 'index.html',
+        // אפליקציית תעלומת המעבדה מתפרסמת בנתיב detective/ ואסור שה-service worker של לוח הכפל יחליף אותה
+        navigateFallbackDenylist: [/\/detective(\/|$)/],
+        globIgnores: ['detective/**'],
         cleanupOutdatedCaches: true,
       },
       manifest: {

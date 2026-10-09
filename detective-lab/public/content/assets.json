@@ -1,0 +1,30 @@
+{
+  "_note": "נכסים אופציונליים. כשהשדה src ריק, האפליקציה מציגה חלופה מקומית. הנתיבים יחסיים לתיקיית public.",
+  "office": {
+    "type": "image",
+    "src": "assets/higgsfield/office.jpg",
+    "alt": "משרד בלש בלילה, מנורת שולחן ותיקיות"
+  },
+  "introClip": {
+    "type": "video",
+    "src": "",
+    "poster": "",
+    "alt": "רחוב גשום וחלון מעבדה מואר"
+  },
+  "evidence": {
+    "type": "image",
+    "src": "assets/higgsfield/evidence.jpg",
+    "alt": "חפצים יומיומיים מונחים כראיות על שולחן"
+  },
+  "outroClip": {
+    "type": "video",
+    "src": "",
+    "poster": "",
+    "alt": "תיק חקירה נסגר על שולחן"
+  },
+  "finale": {
+    "type": "image",
+    "src": "assets/higgsfield/finale.jpg",
+    "alt": "תיק חקירה סגור ויומן המעבדה על שולחן עם שחר בחלון"
+  }
+}
