@@ -584,32 +584,6 @@ select {
   color: var(--amber-ink);
 }
 
-/* אזור מעבדה ממתין */
-.lab.pending {
-  position: relative;
-  border: 3px dashed var(--amber);
-  border-radius: var(--radius);
-  padding: 22px 18px 16px;
-  margin: 18px 0;
-  background: rgba(226, 163, 59, 0.08);
-}
-.lab.pending h3 {
-  margin: 0 0 6px;
-  text-align: right;
-}
-.lab.pending p {
-  margin: 0;
-}
-.pending-stamp {
-  display: inline-block;
-  background: var(--amber);
-  color: #1a1306;
-  font-weight: 800;
-  padding: 2px 12px;
-  border-radius: 6px;
-  margin-bottom: 8px;
-}
-
 /* ---------- המחשות ---------- */
 .visual {
   margin: 12px auto;

@@ -148,7 +148,6 @@ export function Quiz({ content, progress, onDone, onPractice, onHome }: RoundPro
           <p className="big-number">
             {correct} מתוך {results.length}
           </p>
-          <p>הציון אינו כולל את אזורי המעבדה שממתינים לחומר מהמחברת.</p>
           <TallyTable t={t} content={content} onPractice={onPractice} />
         </div>
         {wrong.length > 0 && (
@@ -237,7 +236,6 @@ export function Report({ content, progress, onPractice, onHome }: { content: Con
             )
           })}
         </ul>
-        <p className="note">מעבדות המסה, הנפח והפד״ח ממתינות לחומר מהמחברת ואינן נכללות בדוח.</p>
       </div>
       <div className="row center">
         <button type="button" className="btn primary" onClick={onHome}>
