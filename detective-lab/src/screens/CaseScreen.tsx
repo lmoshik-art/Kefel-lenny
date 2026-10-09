@@ -7,22 +7,16 @@ import { playStamp } from '../sound'
 
 type Step = 'brief' | 'learn' | 'tasks' | 'summary'
 
-export function LabPlaceholder({ lab }: { lab: NonNullable<CaseFile['lab']> }) {
-  if (lab.status === 'ready' && lab.text) {
-    return (
-      <section className="paper lab ready">
-        <h3>{lab.title}</h3>
-        <p>{lab.text}</p>
-      </section>
-    )
-  }
+/** אזור מעבדה מוצג רק אחרי שהושלם מהמחברת (status: "ready" וטקסט). עד אז הוא מוסתר לגמרי */
+export function labReady(lab?: CaseFile['lab']): lab is NonNullable<CaseFile['lab']> {
+  return !!lab && lab.status === 'ready' && !!lab.text.trim()
+}
+
+function LabSection({ lab }: { lab: NonNullable<CaseFile['lab']> }) {
   return (
-    <section className="lab pending" aria-label={`${lab.title}: ממתין לחומר מהמחברת`}>
-      <span className="pending-stamp">ממתין לחומר מהמחברת</span>
+    <section className="paper lab ready">
       <h3>{lab.title}</h3>
-      <p>
-        האזור הזה יושלם לפי המחברת ודפי המעבדה של הכיתה. עד אז הוא אינו נכלל בתרגול, בציון או בבוחן המסכם.
-      </p>
+      <p>{lab.text}</p>
     </section>
   )
 }
@@ -106,7 +100,7 @@ export function CaseScreen({ file, content, assets, progress, onComplete, onHome
             ))}
           </section>
           <DemoView demo={file.demo} />
-          {file.lab && <LabPlaceholder lab={file.lab} />}
+          {labReady(file.lab) && <LabSection lab={file.lab} />}
           <div className="row center">
             <button type="button" className="btn primary big" onClick={() => setStep('tasks')}>
               למשימות התיק ({file.tasks.length})
@@ -165,7 +159,6 @@ export function CaseScreen({ file, content, assets, progress, onComplete, onHome
             ) : (
               <p>כל המשימות נפתרו בניסיון הראשון. אפשר לעבור לתיק הבא.</p>
             )}
-            {file.lab && file.lab.status !== 'ready' && <p className="note">{file.lab.title}: ממתין לחומר מהמחברת, ולכן עדיין לא נבדק כאן.</p>}
           </div>
           <div className="note-card clue" role="note">
             <span className="pin" aria-hidden="true" />

@@ -74,7 +74,7 @@ export function Home({ content, assets, progress, onTrack, onOpenCase, onEvidenc
                   <span className="folder-topic">{content.topics[c.topic]}</span>
                   <span className="folder-title">{c.title}</span>
                   <span className="folder-meta">
-                    {c.tasks.length} משימות{c.lab ? ' · אזור מעבדה ממתין' : ''}
+                    {c.tasks.length} משימות
                   </span>
                   {st?.completed && <span className="mini-stamp">פוענח</span>}
                 </button>
@@ -115,7 +115,7 @@ export function Home({ content, assets, progress, onTrack, onOpenCase, onEvidenc
           {allDone ? (
             <p>כל התיקים פוענחו. הבוחן כולל 10 שאלות על החומר שנלמד באפליקציה, עם הסבר אחרי כל תשובה.</p>
           ) : (
-            <p>הבוחן מומלץ אחרי פענוח כל חמשת התיקים ({done.length} מתוך 5 פוענחו). אזורי המעבדה הממתינים אינם נכללים בו.</p>
+            <p>הבוחן מומלץ אחרי פענוח כל חמשת התיקים ({done.length} מתוך 5 פוענחו).</p>
           )}
           <button type="button" className={`btn ${allDone ? 'primary' : 'ghost'}`} onClick={onQuiz}>
             {allDone ? 'לבוחן המסכם' : 'לגשת לבוחן כבר עכשיו'}
