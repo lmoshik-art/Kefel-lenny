@@ -8,7 +8,7 @@ export function assetUrl(src: string) {
 }
 
 /** תמונת אווירה: אם הוגדר נכס ב-assets.json הוא מוצג, ואחרת מוצגת סצנה מקומית שנבנתה ב-CSS */
-export function AmbientImage({ slot, fallback, className = '' }: { slot?: AssetSlot; fallback: 'office' | 'evidence'; className?: string }) {
+export function AmbientImage({ slot, fallback, className = '' }: { slot?: AssetSlot; fallback: 'office' | 'evidence' | 'none'; className?: string }) {
   const [failed, setFailed] = useState(false)
   if (slot?.src && !failed) {
     return (
@@ -17,6 +17,7 @@ export function AmbientImage({ slot, fallback, className = '' }: { slot?: AssetS
       </div>
     )
   }
+  if (fallback === 'none') return null
   return fallback === 'office' ? <OfficeScene className={className} /> : <EvidenceScene className={className} />
 }
 

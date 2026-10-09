@@ -65,7 +65,7 @@ export interface Content {
 }
 
 export interface AssetSlot { type: 'image' | 'video'; src: string; poster?: string; alt: string }
-export interface Assets { office: AssetSlot; introClip: AssetSlot; evidence: AssetSlot; outroClip: AssetSlot }
+export interface Assets { office: AssetSlot; introClip: AssetSlot; evidence: AssetSlot; outroClip: AssetSlot; finale?: AssetSlot }
 
 export interface TaskResult { taskId: string; topic: TopicId; firstTry: boolean; solved: boolean; repeat: boolean; takeaway?: string }
 

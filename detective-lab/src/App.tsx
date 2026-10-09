@@ -5,7 +5,7 @@ import { setRain } from './sound'
 import { Home } from './screens/Home'
 import { CaseScreen } from './screens/CaseScreen'
 import { EvidenceRound, Quiz, Report, tally } from './screens/Rounds'
-import { ClipPlayer, OfficeScene, SettingsDialog } from './components/Scenes'
+import { AmbientImage, ClipPlayer, OfficeScene, SettingsDialog } from './components/Scenes'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -156,6 +156,7 @@ export default function App() {
     screen = (
       <main className="screen finale">
         <h1 className="case-title">התעלומה נפתרה</h1>
+        <AmbientImage slot={assets?.finale} fallback="none" className="finale-art" />
         <div className="board-grid">
           {content.cases.map((c) => (
             <div key={c.id} className="note-card">
