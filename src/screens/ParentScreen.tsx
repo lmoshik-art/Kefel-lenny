@@ -3,6 +3,7 @@ import { sounds } from '../lib/audio'
 import { useGame } from '../lib/gameState'
 import { isTableLearned } from '../lib/learning'
 import { TABLES } from '../types'
+import { ParentReport } from './ParentReport'
 
 /** קוד כניסה קבוע למסך ההורים, מתועד ב-README */
 const PARENT_CODE = '2580'
@@ -26,6 +27,7 @@ export function ParentScreen({ onExit }: { onExit: () => void }) {
   const [error, setError] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [name, setName] = useState(state.childName)
+  const [view, setView] = useState<'settings' | 'report'>('report')
 
   function pressDigit(digit: string) {
     const next = (code + digit).slice(0, 4)
@@ -84,6 +86,28 @@ export function ParentScreen({ onExit }: { onExit: () => void }) {
         </button>
       </div>
 
+      <div className="parent-tabs" role="tablist" aria-label="מסך הורים">
+        <button
+          role="tab"
+          aria-selected={view === 'report'}
+          className={`chip${view === 'report' ? ' on' : ''}`}
+          onClick={() => setView('report')}
+        >
+          דוח התקדמות
+        </button>
+        <button
+          role="tab"
+          aria-selected={view === 'settings'}
+          className={`chip${view === 'settings' ? ' on' : ''}`}
+          onClick={() => setView('settings')}
+        >
+          הגדרות וחיסכון
+        </button>
+      </div>
+
+      {view === 'report' && <ParentReport />}
+
+      {view === 'settings' && (
       <div className="parent-panel">
         <div className="parent-row">
           <span>נצבר עד כה</span>
@@ -212,6 +236,7 @@ export function ParentScreen({ onExit }: { onExit: () => void }) {
           )}
         </div>
       </div>
+      )}
 
       <div className="spacer" />
       <button className="btn" onClick={onExit}>
