@@ -1,11 +1,25 @@
 // בדיקת תקינות של קובץ התוכן ושל מחוללי השאלות. רץ לפני כל בנייה: npm run validate
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
-import { generate, maxLevel } from '../src/engine/generators.ts'
-import { decimals, sameNumber } from '../src/engine/format.ts'
+import { tmpdir } from 'node:os'
+import { build } from 'esbuild'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+// הידור מודולי ה-TypeScript של המחוללים לקובץ זמני, כדי שהבדיקה תרוץ בכל גרסת Node
+const tmp = mkdtempSync(join(tmpdir(), 'validate-'))
+const out = join(tmp, 'engine.mjs')
+await build({
+  stdin: { contents: "export * from './src/engine/generators.ts'; export * from './src/engine/format.ts'", resolveDir: root, loader: 'ts' },
+  bundle: true,
+  format: 'esm',
+  platform: 'node',
+  outfile: out,
+  logLevel: 'silent',
+})
+const { generate, maxLevel, decimals, sameNumber } = await import(pathToFileURL(out).href)
+rmSync(tmp, { recursive: true, force: true })
 const content = JSON.parse(readFileSync(join(root, 'public/content/content.json'), 'utf8'))
 
 const errors = []
