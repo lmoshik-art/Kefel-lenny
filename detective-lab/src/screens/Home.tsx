@@ -75,7 +75,7 @@ export function Home({ content, progress, preview, onDaily, onExtra, onExam, onN
         {!done ? (
           <>
             <p className="eyebrow">האימון של היום</p>
-            <h2>כ-10 דקות</h2>
+            <h2>{preview.lessons >= 4 ? 'כ-15 דקות' : 'כ-10 דקות'}</h2>
             <p className="muted">
               {preview.lessons ? `${preview.lessons === 1 ? 'נושא חדש אחד' : `${preview.lessons} נושאים חדשים`} עם דוגמה פתורה, ו-` : ''}
               {preview.questions} שאלות מעורבבות מכל מה שלמדת.

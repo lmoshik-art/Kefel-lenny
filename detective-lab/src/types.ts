@@ -53,6 +53,8 @@ export interface Skill {
 export interface Content {
   version: number
   title: string
+  /** תאריך המבחן שנקבע מראש. תאריך שהתלמיד הזין בעצמו גובר עליו */
+  examDate?: string
   topics: { id: string; name: string }[]
   units: Record<string, { family: string; one: string; many: string }>
   skills: Skill[]

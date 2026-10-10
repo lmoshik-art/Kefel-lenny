@@ -71,7 +71,9 @@ export function buildSession(content: Content, p: Progress, rng: Rng, opts: { ex
   const unseen = content.skills.filter((sk) => !skillState(p, sk.id).seen)
   const left = daysToExam(p, today)
   const horizon = left === null ? 5 : Math.max(1, left - 1)
-  let newCount = unseen.length ? Math.min(3, Math.max(1, Math.ceil(unseen.length / horizon))) : 0
+  // כשנשארו מעט ימים מוצגים עד 4 נושאים חדשים ביום, כדי שהיום האחרון יוקדש לחזרה
+  const cap = left !== null && left <= 5 ? 4 : 3
+  let newCount = unseen.length ? Math.min(cap, Math.max(1, Math.ceil(unseen.length / horizon))) : 0
   if (opts.extra) newCount = Math.min(newCount, 1)
 
   const q = (sk: Skill, level: number, extra: Partial<RunItem & { kind: 'question' }> = {}): RunItem => {
