@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import type { Demo, Visual } from '../types'
+import type { Visual } from '../types.ts'
 
 /* ההמחשות המדעיות נבנות כאן בקוד, כדי שהנתונים שמוצגים יהיו תמיד תואמים לתשובה הנכונה */
 
-export function fmt(n: number): string {
-  return String(Math.round(n * 1e6) / 1e6)
-}
+import { fmt } from '../engine/format.ts'
 
 const WEIGHT_H: Record<number, number> = { 500: 36, 200: 32, 100: 28, 50: 24, 20: 20, 10: 17, 5: 15 }
 
@@ -99,7 +97,7 @@ function CylinderSvg({ max, major, minor, level }: { max: number; major: number;
 export const AIR_PARTS = [
   { id: 'n2', label: 'חנקן', pct: 78, cls: 'air-n' },
   { id: 'o2', label: 'חמצן', pct: 21, cls: 'air-o' },
-  { id: 'other', label: 'גזים אחרים (ובהם פחמן דו-חמצני)', pct: 1, cls: 'air-x' },
+  { id: 'other', label: 'ארגון ושאר הגזים', pct: 1, cls: 'air-x' },
 ]
 
 export function AirChart({ interactive = false }: { interactive?: boolean }) {
@@ -136,8 +134,7 @@ export function AirChart({ interactive = false }: { interactive?: boolean }) {
         )}
       </div>
       <figcaption>
-        אוויר יבש, אחוזים מקורבים. כמות אדי המים באוויר משתנה, ולכן אינה מוצגת.
-        {interactive && focus === 'other' && ' הפחמן הדו-חמצני הוא כ-0.04% בלבד, הרבה פחות ממשבצת אחת.'}
+        כל משבצת היא 1% מהאוויר, בקירוב. המשבצת האחרונה היא ארגון (כ-0.93%) ושאר הגזים, ובהם פחמן דו-חמצני בכמות קטנה מאוד.
       </figcaption>
     </figure>
   )
@@ -149,152 +146,62 @@ export function VisualView({ visual }: { visual: Visual }) {
   return <AirChart />
 }
 
-/* ---------- דוגמאות מודרכות ---------- */
+/* ---------- המחשות אינטראקטיביות בשיעורים ---------- */
 
-function BodyMatterDemo({ demo }: { demo: Extract<Demo, { kind: 'bodyMatter' }> }) {
-  const [open, setOpen] = useState<boolean[]>(demo.items.map(() => false))
-  const all = open.every(Boolean)
-  return (
-    <>
-      <div className="evidence-cards">
-        {demo.items.map((it, i) => (
-          <button
-            key={i}
-            type="button"
-            className={`evidence-card ${open[i] ? 'open' : ''}`}
-            aria-expanded={open[i]}
-            onClick={() => setOpen(open.map((o, j) => (j === i ? !o : o)))}
-          >
-            <span className="card-tag">ראיה {i + 1}</span>
-            <span className="card-body">{it.body}</span>
-            {open[i] ? (
-              <span className="card-reveal">
-                <b>גוף:</b> {it.body}
-                <br />
-                <b>{it.materials.length > 1 ? 'חומרים' : 'חומר'}:</b> {it.materials.join(' ו')}
-              </span>
-            ) : (
-              <span className="card-hint">לחץ לפתיחה</span>
-            )}
-          </button>
-        ))}
-      </div>
-      {all && <p className="demo-conclusion">{demo.conclusion}</p>}
-    </>
-  )
-}
-
-function BalanceDemo({ demo }: { demo: Extract<Demo, { kind: 'balance' }> }) {
+export function BalanceDemo() {
+  const objectMass = 175
+  const available = [100, 50, 20, 5]
   const [onPan, setOnPan] = useState<number[]>([])
   const sum = onPan.reduce((s, w) => s + w, 0)
-  const tilt = sum === demo.objectMass ? 'level' : sum < demo.objectMass ? 'left' : 'right'
-  const sorted = [...onPan].sort((a, b) => b - a)
+  const tilt = sum === objectMass ? 'level' : sum < objectMass ? 'left' : 'right'
   return (
-    <>
-      <BalanceSvg weights={sorted} tilt={tilt} objectLabel={tilt === 'level' ? `${demo.objectMass}` : '?'} />
+    <div className="demo">
+      <p className="demo-title">נסה בעצמך: אזן את המאזניים</p>
+      <BalanceSvg weights={[...onPan].sort((a, b) => b - a)} tilt={tilt} objectLabel={tilt === 'level' ? String(objectMass) : '?'} />
       <div className="demo-controls" role="group" aria-label="הוספת משקולות">
-        {demo.available.map((w) => (
-          <button key={w} type="button" className="btn small" onClick={() => onPan.length < 4 && setOnPan([...onPan, w])} disabled={onPan.length >= 4}>
-            הוסף {w} ג׳
+        {available.map((w) => (
+          <button key={w} type="button" className="btn small" disabled={onPan.length >= 4} onClick={() => setOnPan([...onPan, w])}>
+            +{w} גרם
           </button>
         ))}
-        <button type="button" className="btn small ghost" onClick={() => setOnPan(onPan.slice(0, -1))} disabled={!onPan.length}>
-          הסר את האחרונה
+        <button type="button" className="btn small ghost" disabled={!onPan.length} onClick={() => setOnPan(onPan.slice(0, -1))}>
+          הסר אחרונה
         </button>
       </div>
       <p className="status-line" aria-live="polite">
-        סכום המשקולות: {sum} ג׳.{' '}
+        סכום המשקולות: {sum} גרם.{' '}
         {tilt === 'level'
-          ? `המאזניים מאוזנים, ולכן מסת הקופסה היא ${demo.objectMass} גרם.`
+          ? `מאוזן: מסת הגוף היא ${objectMass} גרם.`
           : tilt === 'left'
-            ? 'הכף עם הקופסה נמוכה יותר: מסת הקופסה גדולה מסכום המשקולות. הוסף משקולת.'
-            : 'הכף עם המשקולות נמוכה יותר: סכום המשקולות גדול ממסת הקופסה. הסר משקולת.'}
-        {onPan.length >= 4 && tilt !== 'level' ? ' אפשר לשים עד ארבע משקולות. נסה צירוף אחר.' : ''}
+            ? 'הכף עם הגוף נמוכה יותר: צריך להוסיף משקולת.'
+            : 'הכף עם המשקולות נמוכה יותר: צריך להסיר משקולת.'}
       </p>
-      {tilt === 'level' && <p className="demo-conclusion">{demo.conclusion}</p>}
-    </>
+    </div>
   )
 }
 
-function CylinderDemo({ demo }: { demo: Extract<Demo, { kind: 'cylinder' }> }) {
-  const [level, setLevel] = useState(demo.start)
-  const set = (v: number) => setLevel(Math.max(0, Math.min(demo.max, v)))
-  const base = Math.floor(level / demo.major) * demo.major
-  const steps = Math.round((level - base) / demo.minor)
+export function CylinderDemo() {
+  const max = 100
+  const major = 10
+  const minor = 2
+  const [level, setLevel] = useState(40)
+  const set = (v: number) => setLevel(Math.max(0, Math.min(max, v)))
+  const base = Math.floor(level / major) * major
+  const steps = Math.round((level - base) / minor)
   return (
-    <>
-      <CylinderSvg max={demo.max} major={demo.major} minor={demo.minor} level={level} />
+    <div className="demo">
+      <p className="demo-title">נסה בעצמך: שנה את כמות הנוזל וקרא את המפלס</p>
+      <CylinderSvg max={max} major={major} minor={minor} level={level} />
       <div className="demo-controls" role="group" aria-label="שינוי כמות הנוזל">
-        <button type="button" className="btn small" onClick={() => set(level + demo.minor)}>הוסף {demo.minor} מ״ל</button>
-        <button type="button" className="btn small" onClick={() => set(level - demo.minor)}>הוצא {demo.minor} מ״ל</button>
-        <button type="button" className="btn small ghost" onClick={() => set(level + demo.major)}>הוסף {demo.major} מ״ל</button>
-        <button type="button" className="btn small ghost" onClick={() => set(level - demo.major)}>הוצא {demo.major} מ״ל</button>
+        <button type="button" className="btn small" onClick={() => set(level + minor)}>+{minor} מ״ל</button>
+        <button type="button" className="btn small" onClick={() => set(level - minor)}>-{minor} מ״ל</button>
+        <button type="button" className="btn small ghost" onClick={() => set(level + major)}>+{major} מ״ל</button>
+        <button type="button" className="btn small ghost" onClick={() => set(level - major)}>-{major} מ״ל</button>
       </div>
       <p className="status-line" aria-live="polite">
-        קריאה: השנתה הממוספרת שמתחת למפלס היא {base}
-        {steps > 0 ? `, ועוד ${steps} ${steps === 1 ? 'שנתה קטנה' : 'שנתות קטנות'} של ${demo.minor} מ״ל` : ''}. הנפח: <b>{level} מ״ל</b>.
+        השנתה הממוספרת מתחת למפלס: {base}
+        {steps > 0 ? `, ועוד ${steps} × ${minor} מ״ל` : ''}. הנפח: <b>{fmt(level)} מ״ל</b>.
       </p>
-      <p className="demo-conclusion">{demo.conclusion}</p>
-    </>
-  )
-}
-
-const CONVERSIONS = [
-  { id: 'kg-g', from: 'ק״ג', to: 'גרם', mul: true },
-  { id: 'g-kg', from: 'גרם', to: 'ק״ג', mul: false },
-  { id: 'l-ml', from: 'ליטר', to: 'מ״ל', mul: true },
-  { id: 'ml-l', from: 'מ״ל', to: 'ליטר', mul: false },
-]
-
-function ConverterDemo({ demo }: { demo: Extract<Demo, { kind: 'converter' }> }) {
-  const [conv, setConv] = useState(CONVERSIONS[0])
-  const [val, setVal] = useState(2)
-  const result = conv.mul ? val * 1000 : val / 1000
-  return (
-    <>
-      <div className="demo-controls" role="radiogroup" aria-label="סוג ההמרה">
-        {CONVERSIONS.map((c) => (
-          <button key={c.id} type="button" role="radio" aria-checked={conv.id === c.id} className={`btn small ${conv.id === c.id ? 'selected' : 'ghost'}`} onClick={() => setConv(c)}>
-            {c.from} ← {c.to}
-          </button>
-        ))}
-      </div>
-      <div className="demo-controls" role="radiogroup" aria-label="כמות">
-        {demo.presets.map((p) => (
-          <button key={p} type="button" role="radio" aria-checked={val === p} className={`btn small ${val === p ? 'selected' : 'ghost'}`} onClick={() => setVal(p)}>
-            {fmt(p)}
-          </button>
-        ))}
-      </div>
-      <div className="converter-out" aria-live="polite">
-        <span className="conv-val">{fmt(val)} {conv.from}</span>
-        <span className="conv-op">{conv.mul ? '× 1000' : ': 1000'}</span>
-        <span className="conv-val">{fmt(result)} {conv.to}</span>
-      </div>
-      <p className="status-line">
-        {conv.mul ? 'מיחידה גדולה ליחידה קטנה כופלים ב-1000.' : 'מיחידה קטנה ליחידה גדולה מחלקים ב-1000.'}
-      </p>
-      <p className="demo-conclusion">{demo.conclusion}</p>
-    </>
-  )
-}
-
-export function DemoView({ demo }: { demo: Demo }) {
-  return (
-    <section className="paper demo" aria-labelledby="demo-title">
-      <h3 id="demo-title">{demo.title}</h3>
-      <p>{demo.instructions}</p>
-      {demo.kind === 'bodyMatter' && <BodyMatterDemo demo={demo} />}
-      {demo.kind === 'balance' && <BalanceDemo demo={demo} />}
-      {demo.kind === 'cylinder' && <CylinderDemo demo={demo} />}
-      {demo.kind === 'converter' && <ConverterDemo demo={demo} />}
-      {demo.kind === 'air' && (
-        <>
-          <AirChart interactive />
-          <p className="demo-conclusion">{demo.conclusion}</p>
-        </>
-      )}
-      {'note' in demo && demo.note && <p className="note">{demo.note}</p>}
-    </section>
+    </div>
   )
 }
