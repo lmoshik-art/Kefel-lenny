@@ -1,36 +1,25 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { Assets, Content, Progress, TaskResult, TopicId } from './types'
-import { clearProgress, defaultProgress, loadProgress, recordResults, saveProgress } from './storage'
-import { setRain } from './sound'
-import { Home } from './screens/Home'
-import { CaseScreen } from './screens/CaseScreen'
-import { EvidenceRound, Quiz, Report, tally } from './screens/Rounds'
-import { AmbientImage, ClipPlayer, OfficeScene, SettingsDialog } from './components/Scenes'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { Content, Outcome, Progress, RunItem } from './types.ts'
+import { clearProgress, defaultProgress, loadProgress, saveProgress } from './engine/storage.ts'
+import { applyOutcome, buildExam, buildSession, dayKey, markSeen } from './engine/plan.ts'
+import { Home } from './screens/Home.tsx'
+import { Session } from './screens/Session.tsx'
+import { Library, Onboarding, ProgressScreen, SettingsScreen } from './screens/Other.tsx'
 
 const BASE = import.meta.env.BASE_URL
 
-type View = { name: 'home' } | { name: 'case'; id: string } | { name: 'evidence' } | { name: 'quiz' } | { name: 'report' } | { name: 'finale' }
-
-function parseHash(): View {
-  const h = window.location.hash.replace(/^#\/?/, '')
-  const [a, b] = h.split('/')
-  if (a === 'case' && b) return { name: 'case', id: b }
-  if (a === 'evidence' || a === 'quiz' || a === 'report' || a === 'finale') return { name: a }
-  return { name: 'home' }
-}
-
-function toHash(v: View) {
-  return v.name === 'home' ? '#/' : v.name === 'case' ? `#/case/${v.id}` : `#/${v.name}`
-}
+type View =
+  | { name: 'home' }
+  | { name: 'session'; mode: 'daily' | 'extra' | 'exam'; items: RunItem[]; key: number }
+  | { name: 'library'; id: string | null }
+  | { name: 'progress' }
+  | { name: 'settings' }
 
 export default function App() {
   const [content, setContent] = useState<Content | null>(null)
-  const [assets, setAssets] = useState<Assets | null>(null)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState<Progress>(loadProgress)
-  const [view, setView] = useState<View>(parseHash)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [clip, setClip] = useState<null | 'intro' | 'outro'>(null)
+  const [view, setView] = useState<View>({ name: 'home' })
 
   useEffect(() => {
     fetch(`${BASE}content/content.json`, { cache: 'no-cache' })
@@ -39,205 +28,123 @@ export default function App() {
         return r.json()
       })
       .then(setContent)
-      .catch(() => setError('לא ניתן לטעון את קובץ התוכן. בדוק את החיבור ונסה לרענן את הדף.'))
-    fetch(`${BASE}content/assets.json`, { cache: 'no-cache' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setAssets)
-      .catch(() => setAssets(null))
+      .catch(() => setError('לא ניתן לטעון את החומר. בדוק את החיבור ורענן את הדף.'))
   }, [])
 
   useEffect(() => saveProgress(progress), [progress])
 
   useEffect(() => {
     const root = document.documentElement
-    root.dataset.theme = progress.settings.theme
+    const theme = progress.settings.theme
+    if (theme === 'auto') delete root.dataset.theme
+    else root.dataset.theme = theme
     root.dataset.motion = progress.settings.reduceMotion ? 'reduce' : 'full'
-  }, [progress.settings.theme, progress.settings.reduceMotion])
+  }, [progress.settings])
 
+  // כפתור ״חזרה״ של הטלפון חוזר למסך הראשי במקום לצאת מהאפליקציה
   useEffect(() => {
-    setRain(progress.settings.rain)
-  }, [progress.settings.rain])
-
-  useEffect(() => {
-    const onHash = () => setView(parseHash())
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
+    const onPop = () => setView({ name: 'home' })
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   const go = useCallback((v: View) => {
-    if (window.location.hash !== toHash(v)) window.location.hash = toHash(v)
+    if (v.name !== 'home') history.pushState({ v: v.name }, '')
     setView(v)
     window.scrollTo({ top: 0 })
   }, [])
+  const home = useCallback(() => {
+    setView({ name: 'home' })
+    window.scrollTo({ top: 0 })
+  }, [])
 
-  const home = useCallback(() => go({ name: 'home' }), [go])
-  const closeClip = useCallback(() => setClip(null), [])
+  const preview = useMemo(() => {
+    if (!content) return { lessons: 0, questions: 0 }
+    const items = buildSession(content, progress, Math.random)
+    return { lessons: items.filter((i) => i.kind === 'lesson').length, questions: items.filter((i) => i.kind === 'question').length }
+    // התצוגה המקדימה מחושבת מחדש רק כשמשתנה מספר המיומנויות שנלמדו או היום
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, Object.values(progress.skills).filter((s) => s.seen).length, view.name])
 
-  if (error) {
-    return (
-      <main className="screen">
-        <div className="paper">
-          <p>{error}</p>
-        </div>
-      </main>
-    )
-  }
-  if (!content) {
-    return (
-      <main className="screen loading" aria-busy="true">
-        <OfficeScene className="hero-art" />
-        <p className="center">פותחים את התיקים...</p>
-      </main>
-    )
-  }
+  if (error) return <main className="screen"><div className="card"><p>{error}</p></div></main>
+  if (!content) return <main className="screen" aria-busy="true"><p className="muted center">טוען...</p></main>
 
-  const practiceTopic = (topic: TopicId) => {
-    const c = content.cases.find((x) => x.topic === topic)
-    if (c) go({ name: 'case', id: c.id })
+  const setDate = (d: string | null) => setProgress((p) => ({ ...p, examDate: d }))
+
+  if (!progress.onboarded) {
+    return <Onboarding progress={progress} onSetDate={setDate} onStart={() => setProgress((p) => ({ ...p, onboarded: true }))} />
   }
 
-  const completeCase = (caseId: string, results: TaskResult[]) => {
+  const start = (mode: 'daily' | 'extra' | 'exam') => {
+    const items = mode === 'exam' ? buildExam(content, progress, Math.random) : buildSession(content, progress, Math.random, { extra: mode === 'extra' })
+    go({ name: 'session', mode, items, key: Date.now() })
+  }
+
+  const finish = (mode: 'daily' | 'extra' | 'exam', outcomes: Outcome[]) => {
+    const today = dayKey()
     setProgress((p) => {
-      const solved = [...new Set(results.filter((r) => r.solved).map((r) => r.taskId))]
-      const review = [...new Set(results.filter((r) => !r.firstTry).map((r) => r.taskId))]
-      const next = recordResults(p, results)
-      return { ...next, cases: { ...next.cases, [caseId]: { completed: true, solved, review } } }
+      const day = p.days[today] ?? { questions: 0, firstTry: 0, daily: false, sessions: 0 }
+      const next: Progress = { ...p, days: { ...p.days, [today]: { ...day, sessions: day.sessions + 1, daily: day.daily || mode === 'daily' } } }
+      if (mode === 'exam') {
+        const byTopic: Record<string, { correct: number; total: number }> = {}
+        for (const o of outcomes) {
+          const t = content.skills.find((s) => s.id === o.skillId)!.topic
+          byTopic[t] = byTopic[t] ?? { correct: 0, total: 0 }
+          byTopic[t].total++
+          if (o.firstTry) byTopic[t].correct++
+        }
+        next.exams = [...p.exams, { date: today, correct: outcomes.filter((o) => o.firstTry).length, total: outcomes.length, byTopic }]
+      }
+      return next
     })
   }
 
-  const allDone = content.cases.every((c) => progress.cases[c.id]?.completed)
-
   let screen: JSX.Element
-  if (view.name === 'case') {
-    const file = content.cases.find((c) => c.id === view.id)
-    screen = file ? (
-      <CaseScreen
-        key={file.id}
-        file={file}
+  if (view.name === 'session') {
+    screen = (
+      <Session
+        key={view.key}
         content={content}
-        assets={assets}
         progress={progress}
-        onHome={() => {
-          if (allDone && !progress.finaleSeen) {
-            setProgress((p) => ({ ...p, finaleSeen: true }))
-            go({ name: 'finale' })
-          } else home()
+        items={view.items}
+        mode={view.mode}
+        onOutcome={(o) => setProgress((p) => applyOutcome(content, p, o))}
+        onLessonSeen={(id) => setProgress((p) => markSeen(p, id))}
+        onFinish={(os) => finish(view.mode, os)}
+        onExit={home}
+      />
+    )
+  } else if (view.name === 'library') {
+    screen = <Library content={content} skillId={view.id} onOpen={(id) => go({ name: 'library', id })} onBack={() => (view.id ? setView({ name: 'library', id: null }) : home())} />
+  } else if (view.name === 'progress') {
+    screen = <ProgressScreen content={content} progress={progress} onBack={home} />
+  } else if (view.name === 'settings') {
+    screen = (
+      <SettingsScreen
+        progress={progress}
+        onSettings={(s) => setProgress((p) => ({ ...p, settings: s }))}
+        onSetDate={setDate}
+        onReset={() => {
+          clearProgress()
+          setProgress({ ...defaultProgress(), onboarded: true, settings: progress.settings })
+          home()
         }}
-        onComplete={(r) => completeCase(file.id, r)}
+        onBack={home}
       />
-    ) : (
-      <main className="screen">
-        <p>התיק לא נמצא.</p>
-      </main>
-    )
-  } else if (view.name === 'evidence') {
-    screen = (
-      <EvidenceRound
-        content={content}
-        progress={progress}
-        onPractice={practiceTopic}
-        onHome={home}
-        onDone={(r) => setProgress((p) => ({ ...recordResults(p, r), evidence: { last: tally(r) } }))}
-      />
-    )
-  } else if (view.name === 'quiz') {
-    screen = (
-      <Quiz
-        content={content}
-        progress={progress}
-        onPractice={practiceTopic}
-        onHome={home}
-        onDone={(r) => setProgress((p) => ({ ...recordResults(p, r), quiz: { attempts: p.quiz.attempts + 1, last: tally(r) } }))}
-      />
-    )
-  } else if (view.name === 'report') {
-    screen = <Report content={content} progress={progress} onPractice={practiceTopic} onHome={home} />
-  } else if (view.name === 'finale') {
-    screen = (
-      <main className="screen finale">
-        <h1 className="case-title">התעלומה נפתרה</h1>
-        <AmbientImage slot={assets?.finale} fallback="none" className="finale-art" />
-        <div className="board-grid">
-          {content.cases.map((c) => (
-            <div key={c.id} className="note-card">
-              <span className="pin" aria-hidden="true" />
-              <p>{c.clue}</p>
-            </div>
-          ))}
-        </div>
-        <div className="paper story">
-          <p className="story-text">{content.story.finale}</p>
-          <p className="note">פתרון התעלומה הוא סוף הסיפור, לא מדד לשליטה בחומר. הבוחן המסכם ודוח ההבנה מראים מה כדאי לחזק.</p>
-        </div>
-        <div className="row center">
-          <button type="button" className="btn ghost" onClick={() => setClip('outro')}>
-            קליפ סגירת התיק
-          </button>
-          <button type="button" className="btn primary" onClick={() => go({ name: 'quiz' })}>
-            לבוחן המסכם
-          </button>
-          <button type="button" className="btn ghost" onClick={home}>
-            חזרה למשרד
-          </button>
-        </div>
-      </main>
     )
   } else {
     screen = (
       <Home
         content={content}
-        assets={assets}
         progress={progress}
-        onTrack={(t) => setProgress((p) => ({ ...p, track: t }))}
-        onOpenCase={(id) => go({ name: 'case', id })}
-        onEvidence={() => go({ name: 'evidence' })}
-        onQuiz={() => go({ name: 'quiz' })}
-        onReport={() => go({ name: 'report' })}
-        onIntroClip={() => setClip('intro')}
-        onFinale={() => go({ name: 'finale' })}
+        preview={preview}
+        onDaily={() => start('daily')}
+        onExtra={() => start('extra')}
+        onExam={() => start('exam')}
+        onNav={(to) => go(to === 'library' ? { name: 'library', id: null } : { name: to })}
+        onSetDate={setDate}
       />
     )
   }
-
-  return (
-    <>
-      <a href="#main" className="skip-link">
-        דלג לתוכן
-      </a>
-      <header className="topbar">
-        <button type="button" className="brand" onClick={home}>
-          תעלומת המעבדה
-        </button>
-        <button type="button" className="btn small ghost" onClick={() => setSettingsOpen(true)}>
-          הגדרות
-        </button>
-      </header>
-      <div id="main">{screen}</div>
-      <footer className="footer">
-        <p>ההתקדמות נשמרת רק במכשיר הזה. אין הרשמה ואין איסוף מידע אישי.</p>
-      </footer>
-      {settingsOpen && (
-        <SettingsDialog
-          settings={progress.settings}
-          onChange={(s) => setProgress((p) => ({ ...p, settings: s }))}
-          onReset={() => {
-            clearProgress()
-            setProgress({ ...defaultProgress(), settings: progress.settings })
-            setSettingsOpen(false)
-            home()
-          }}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
-      {clip && (
-        <ClipPlayer
-          slot={clip === 'intro' ? assets?.introClip : assets?.outroClip}
-          variant={clip}
-          caption={clip === 'intro' ? 'לילה גשום. בחלון המעבדה עדיין דולק אור.' : 'התיק נסגר.'}
-          reduceMotion={progress.settings.reduceMotion}
-          onClose={closeClip}
-        />
-      )}
-    </>
-  )
+  return screen
 }

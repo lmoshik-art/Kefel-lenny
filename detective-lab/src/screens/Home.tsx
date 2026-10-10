@@ -1,134 +1,166 @@
-import type { Assets, Content, Progress } from '../types'
-import { AmbientImage } from '../components/Scenes'
+import { useState } from 'react'
+import type { Content, Progress } from '../types.ts'
+import { READY_TEXT, dayKey, daysToExam, readiness, skillState, type ReadyLabel } from '../engine/plan.ts'
+
+export function topicReadiness(content: Content, p: Progress, topicId: string) {
+  const skills = content.skills.filter((s) => s.topic === topicId)
+  const rs = skills.map((s) => readiness(s, skillState(p, s.id)))
+  const pct = Math.round(rs.reduce((a, r) => a + r.pct, 0) / rs.length)
+  const order: ReadyLabel[] = ['new', 'started', 'almost', 'ready']
+  // הנושא מוכן רק כשכל המיומנויות בו מוכנות
+  const label = rs.every((r) => r.label === 'new') ? 'new' : order[Math.min(...rs.map((r) => Math.max(1, order.indexOf(r.label))))]
+  return { pct, label, skills: skills.map((s, i) => ({ skill: s, ...rs[i] })) }
+}
+
+export function ExamCountdown({ p, onSetDate }: { p: Progress; onSetDate: (d: string | null) => void }) {
+  const left = daysToExam(p)
+  const [editing, setEditing] = useState(!p.examDate)
+  if (editing || left === null) {
+    return (
+      <div className="exam-date">
+        <label htmlFor="exam-date">מתי המבחן?</label>
+        <input
+          id="exam-date"
+          type="date"
+          min={dayKey()}
+          value={p.examDate ?? ''}
+          onChange={(e) => {
+            onSetDate(e.target.value || null)
+            if (e.target.value) setEditing(false)
+          }}
+        />
+        <p className="muted">לפי התאריך האפליקציה מתכננת מתי לחזור על כל נושא.</p>
+      </div>
+    )
+  }
+  return (
+    <button type="button" className="countdown" onClick={() => setEditing(true)} aria-label="שינוי תאריך המבחן">
+      <span className="count-num">{left < 0 ? '✓' : left}</span>
+      <span>{left < 0 ? 'המבחן עבר' : left === 0 ? 'המבחן היום' : left === 1 ? 'יום למבחן' : 'ימים למבחן'}</span>
+    </button>
+  )
+}
 
 interface Props {
   content: Content
-  assets: Assets | null
   progress: Progress
-  onTrack: (t: 'beginner' | 'evidence') => void
-  onOpenCase: (id: string) => void
-  onEvidence: () => void
-  onQuiz: () => void
-  onReport: () => void
-  onIntroClip: () => void
-  onFinale: () => void
+  preview: { lessons: number; questions: number }
+  onDaily: () => void
+  onExtra: () => void
+  onExam: () => void
+  onNav: (to: 'library' | 'progress' | 'settings') => void
+  onSetDate: (d: string | null) => void
 }
 
-export function Home({ content, assets, progress, onTrack, onOpenCase, onEvidence, onQuiz, onReport, onIntroClip, onFinale }: Props) {
-  const done = content.cases.filter((c) => progress.cases[c.id]?.completed)
-  const allDone = done.length === content.cases.length
-  const nextCase = content.cases.find((c) => !progress.cases[c.id]?.completed)
+export function Home({ content, progress, preview, onDaily, onExtra, onExam, onNav, onSetDate }: Props) {
+  const today = dayKey()
+  const day = progress.days[today]
+  const done = !!day?.daily
+  const [open, setOpen] = useState<string | null>(null)
+  const left = daysToExam(progress)
+  const lastExam = progress.exams[progress.exams.length - 1]
+  const seenAll = content.skills.every((s) => skillState(progress, s.id).seen)
 
   return (
     <main className="screen home">
-      <section className="hero">
-        <AmbientImage slot={assets?.office} fallback="office" className="hero-art" />
-        <div className="hero-text">
-          <p className="kicker">משרד הבלש</p>
-          <h1 className="title">{content.story.title}</h1>
-          <p className="lead">{content.story.opening}</p>
-          <p className="frame-note">{content.story.frameNote}</p>
-          <button type="button" className="link-btn" onClick={onIntroClip}>
-            צפייה בפתיח הקצר
-          </button>
+      <header className="home-head">
+        <div>
+          <p className="eyebrow">מדעים · כיתה ז׳</p>
+          <h1>הכנה למבחן</h1>
         </div>
-      </section>
+        <ExamCountdown p={progress} onSetDate={onSetDate} />
+      </header>
 
-      <section className="tracks" aria-labelledby="tracks-title">
-        <h2 id="tracks-title" className="section-title">בחר מסלול</h2>
-        <div className="track-grid">
-          <button type="button" className={`track ${progress.track === 'beginner' ? 'on' : ''}`} aria-pressed={progress.track === 'beginner'} onClick={() => onTrack('beginner')}>
-            <b>בלש מתחיל</b>
-            <span>לומדים מהתחלה: פתיח, הסבר, דוגמה מודרכת ואז משימות.</span>
-          </button>
-          <button type="button" className={`track ${progress.track === 'evidence' ? 'on' : ''}`} aria-pressed={progress.track === 'evidence'} onClick={() => onTrack('evidence')}>
-            <b>בדיקת ראיות</b>
-            <span>מה אני כבר יודע? סבב קצר מכל הנושאים, ובתיקים מתחילים ישר במשימות.</span>
-          </button>
-        </div>
-        {progress.track === 'evidence' && (
-          <div className="row center">
-            <button type="button" className="btn primary big" onClick={onEvidence}>
-              לסבב בדיקת הראיות (כ-10 משימות)
+      <section className="card today">
+        {!done ? (
+          <>
+            <p className="eyebrow">האימון של היום</p>
+            <h2>כ-10 דקות</h2>
+            <p className="muted">
+              {preview.lessons ? `${preview.lessons === 1 ? 'נושא חדש אחד' : `${preview.lessons} נושאים חדשים`} עם דוגמה פתורה, ו-` : ''}
+              {preview.questions} שאלות מעורבבות מכל מה שלמדת.
+            </p>
+            <button type="button" className="btn primary wide" onClick={onDaily}>
+              {Object.keys(progress.days).length ? 'התחל את האימון' : 'התחל את האימון הראשון'}
             </button>
-          </div>
-        )}
-        {progress.track === 'beginner' && nextCase && (
-          <div className="row center">
-            <button type="button" className="btn primary big" onClick={() => onOpenCase(nextCase.id)}>
-              {done.length ? 'להמשך: ' : 'להתחלה: '}תיק {nextCase.number}, {nextCase.title}
+          </>
+        ) : (
+          <>
+            <p className="eyebrow">האימון של היום הושלם</p>
+            <h2>
+              {day.firstTry} מתוך {day.questions} <span className="muted small">נכון בניסיון הראשון היום</span>
+            </h2>
+            <p className="muted">מחר יחכו לך חזרות על מה שלמדת. אם בא לך, אפשר עוד סבב קצר עכשיו.</p>
+            <button type="button" className="btn ghost wide" onClick={onExtra}>
+              עוד סבב קצר
             </button>
-          </div>
+          </>
         )}
       </section>
 
-      <section aria-labelledby="files-title">
-        <h2 id="files-title" className="section-title">תיקי החקירה</h2>
-        <ul className="files">
-          {content.cases.map((c) => {
-            const st = progress.cases[c.id]
+      <section className="card">
+        <div className="card-head">
+          <h2>מוכנות לפי נושא</h2>
+          <button type="button" className="link-btn" onClick={() => onNav('progress')}>
+            פירוט
+          </button>
+        </div>
+        <ul className="topics">
+          {content.topics.map((t) => {
+            const r = topicReadiness(content, progress, t.id)
             return (
-              <li key={c.id}>
-                <button type="button" className={`folder-card ${st?.completed ? 'done' : ''}`} onClick={() => onOpenCase(c.id)}>
-                  <span className="folder-tab">תיק {c.number}</span>
-                  <span className="folder-topic">{content.topics[c.topic]}</span>
-                  <span className="folder-title">{c.title}</span>
-                  <span className="folder-meta">
-                    {c.tasks.length} משימות
-                  </span>
-                  {st?.completed && <span className="mini-stamp">פוענח</span>}
+              <li key={t.id}>
+                <button type="button" className="topic-row" aria-expanded={open === t.id} onClick={() => setOpen(open === t.id ? null : t.id)}>
+                  <span className="topic-name">{t.name}</span>
+                  <span className={`badge lv-${r.label}`}>{READY_TEXT[r.label]}</span>
                 </button>
+                <div className="bar" aria-hidden="true">
+                  <span className={`lv-${r.label}`} style={{ width: `${r.label === 'new' ? 0 : Math.max(6, r.pct)}%` }} />
+                </div>
+                {open === t.id && (
+                  <ul className="skill-list">
+                    {r.skills.map((s) => (
+                      <li key={s.skill.id}>
+                        <span>{s.skill.title}</span>
+                        <span className="muted">{READY_TEXT[s.label]}{s.label !== 'new' && s.pct ? ` · ${s.pct}%` : ''}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             )
           })}
         </ul>
+        <p className="muted small">המוכנות מחושבת לפי התשובות האחרונות בניסיון הראשון, לא לפי מספר האימונים.</p>
       </section>
 
-      <section className="board" aria-labelledby="board-title">
-        <h2 id="board-title" className="section-title">לוח הראיות</h2>
-        <div className="board-grid">
-          {content.cases.map((c) =>
-            progress.cases[c.id]?.completed ? (
-              <div key={c.id} className="note-card">
-                <span className="pin" aria-hidden="true" />
-                <p>{c.clue}</p>
-              </div>
-            ) : (
-              <div key={c.id} className="note-card empty">
-                <p>פתק {c.number} ייחשף אחרי פענוח תיק {c.number}</p>
-              </div>
-            ),
-          )}
-        </div>
-        {allDone && (
-          <div className="row center">
-            <button type="button" className="btn ghost" onClick={onFinale}>
-              לפענוח התעלומה
-            </button>
-          </div>
+      <section className="card">
+        <h2>סימולציית מבחן</h2>
+        <p className="muted">
+          שאלות מכל הנושאים, בלי רמזים ובלי ניסיון נוסף, כמו במבחן. בלי הגבלת זמן.
+          {left !== null && left <= 2 && left >= 0 ? ' זה הזמן המומלץ לעשות אותה.' : !seenAll ? ' מומלץ אחרי שעברת על כל הנושאים.' : ''}
+        </p>
+        {lastExam && (
+          <p className="muted small">
+            בפעם האחרונה: {lastExam.correct} מתוך {lastExam.total}.
+          </p>
         )}
+        <button type="button" className="btn ghost wide" onClick={onExam}>
+          התחל סימולציה
+        </button>
       </section>
 
-      <section className="final-row" aria-label="בוחן ודוח">
-        <div className="paper">
-          <h2>בוחן מסכם</h2>
-          {allDone ? (
-            <p>כל התיקים פוענחו. הבוחן כולל 10 שאלות על החומר שנלמד באפליקציה, עם הסבר אחרי כל תשובה.</p>
-          ) : (
-            <p>הבוחן מומלץ אחרי פענוח כל חמשת התיקים ({done.length} מתוך 5 פוענחו).</p>
-          )}
-          <button type="button" className={`btn ${allDone ? 'primary' : 'ghost'}`} onClick={onQuiz}>
-            {allDone ? 'לבוחן המסכם' : 'לגשת לבוחן כבר עכשיו'}
-          </button>
-        </div>
-        <div className="paper">
-          <h2>הבנה לפי נושאים</h2>
-          <p>פענוח התעלומה לבדו אינו מעיד על שליטה בחומר. הדוח מציג איך הלך בכל נושא בניסיון הראשון.</p>
-          <button type="button" className="btn ghost" onClick={onReport}>
-            לדוח ההבנה
-          </button>
-        </div>
-      </section>
+      <nav className="home-nav" aria-label="עוד">
+        <button type="button" className="nav-btn" onClick={() => onNav('library')}>
+          סיכומי החומר
+        </button>
+        <button type="button" className="nav-btn" onClick={() => onNav('progress')}>
+          התקדמות ושיתוף
+        </button>
+        <button type="button" className="nav-btn" onClick={() => onNav('settings')}>
+          הגדרות
+        </button>
+      </nav>
     </main>
   )
 }
