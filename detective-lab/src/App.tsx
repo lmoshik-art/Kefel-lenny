@@ -33,6 +33,12 @@ export default function App() {
 
   useEffect(() => saveProgress(progress), [progress])
 
+  // תאריך מבחן שנקבע מראש בקובץ התוכן, אם התלמיד עוד לא הזין תאריך משלו
+  useEffect(() => {
+    const preset = content?.examDate
+    if (preset && preset >= dayKey()) setProgress((p) => (p.examDate ? p : { ...p, examDate: preset }))
+  }, [content])
+
   useEffect(() => {
     const root = document.documentElement
     const theme = progress.settings.theme
@@ -62,9 +68,9 @@ export default function App() {
     if (!content) return { lessons: 0, questions: 0 }
     const items = buildSession(content, progress, Math.random)
     return { lessons: items.filter((i) => i.kind === 'lesson').length, questions: items.filter((i) => i.kind === 'question').length }
-    // התצוגה המקדימה מחושבת מחדש רק כשמשתנה מספר המיומנויות שנלמדו או היום
+    // התצוגה המקדימה מחושבת מחדש כשמשתנים מספר המיומנויות שנלמדו, המסך או תאריך המבחן
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, Object.values(progress.skills).filter((s) => s.seen).length, view.name])
+  }, [content, Object.values(progress.skills).filter((s) => s.seen).length, view.name, progress.examDate])
 
   if (error) return <main className="screen"><div className="card"><p>{error}</p></div></main>
   if (!content) return <main className="screen" aria-busy="true"><p className="muted center">טוען...</p></main>
