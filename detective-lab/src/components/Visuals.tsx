@@ -62,7 +62,7 @@ function BalanceSvg({ weights, tilt, objectLabel = '?' }: { weights: number[]; t
   )
 }
 
-function CylinderSvg({ max, major, minor, level }: { max: number; major: number; minor: number; level: number }) {
+function CylinderSvg({ max, major, minor, level, stone = false, caption = true }: { max: number; major: number; minor: number; level: number; stone?: boolean; caption?: boolean }) {
   const bottom = 312
   const top = 42
   const y = (v: number) => bottom - (v * (bottom - top)) / max
@@ -74,6 +74,7 @@ function CylinderSvg({ max, major, minor, level }: { max: number; major: number;
         <path d={`M 92 ${top - 22} L 92 ${bottom + 6} Q 92 ${bottom + 14} 100 ${bottom + 14} L 152 ${bottom + 14} Q 160 ${bottom + 14} 160 ${bottom + 6} L 160 ${top - 22}`} className="glass" />
         <rect x="94" y={y(level)} width="64" height={bottom + 12 - y(level)} className="liquid" />
         <line x1="94" x2="158" y1={y(level)} y2={y(level)} className="level-line" />
+        {stone && <path d={`M 108 ${bottom + 10} Q 104 ${bottom - 6} 116 ${bottom - 14} Q 132 ${bottom - 20} 142 ${bottom - 8} Q 148 ${bottom + 6} 136 ${bottom + 10} Z`} className="stone" />}
         {ticks.map((v) => {
           const isMajor = Math.abs(v / major - Math.round(v / major)) < 1e-9
           return (
@@ -89,7 +90,7 @@ function CylinderSvg({ max, major, minor, level }: { max: number; major: number;
         <text x="66" y={bottom + 4.5} textAnchor="end" className="tick-label">0</text>
         <text x="30" y="24" className="unit-label" textAnchor="middle">מ״ל</text>
       </svg>
-      <figcaption>שנתות ממוספרות כל {major} מ״ל. השנתות הקטנות מחלקות כל קטע ל-{major / minor} רווחים שווים.</figcaption>
+      {caption && <figcaption>שנתות ממוספרות כל {major} מ״ל. השנתות הקטנות מחלקות כל קטע ל-{major / minor} רווחים שווים.</figcaption>}
     </figure>
   )
 }
@@ -140,9 +141,55 @@ export function AirChart({ interactive = false }: { interactive?: boolean }) {
   )
 }
 
+function BoxSvg({ l, w, h }: { l: number; w: number; h: number }) {
+  // תיבה בהטלה איזומטרית פשוטה; הפרופורציות מוגבלות כדי שהשרטוט יישאר קריא
+  const max = Math.max(l, w, h)
+  const sc = (n: number) => 40 + (n / max) * 110
+  const L = sc(l)
+  const W = sc(w) * 0.55
+  const H = sc(h)
+  const x0 = 60
+  const y0 = 40 + W * 0.6 + H
+  const dx = W * 0.8
+  const dy = W * 0.6
+  const P = (x: number, y: number) => `${x},${y}`
+  return (
+    <figure className="visual">
+      <svg viewBox={`-30 0 ${L + dx + 170} ${y0 + 50}`} role="img" aria-label={`תיבה: אורך ${l} ס״מ, רוחב ${w} ס״מ, גובה ${h} ס״מ`}>
+        <polygon points={[P(x0, y0), P(x0 + L, y0), P(x0 + L, y0 - H), P(x0, y0 - H)].join(' ')} className="box-front" />
+        <polygon points={[P(x0, y0 - H), P(x0 + L, y0 - H), P(x0 + L + dx, y0 - H - dy), P(x0 + dx, y0 - H - dy)].join(' ')} className="box-top" />
+        <polygon points={[P(x0 + L, y0), P(x0 + L + dx, y0 - dy), P(x0 + L + dx, y0 - H - dy), P(x0 + L, y0 - H)].join(' ')} className="box-side" />
+        <text x={x0 + L / 2} y={y0 + 24} textAnchor="middle" className="dim-label">אורך {l} ס״מ</text>
+        <text x={x0 - 8} y={y0 - H / 2} textAnchor="start" className="dim-label">גובה {h}</text>
+        <text x={x0 + L + dx + 6} y={y0 - dy / 2} textAnchor="end" className="dim-label">רוחב {w}</text>
+      </svg>
+    </figure>
+  )
+}
+
+function DisplaceView(v: Extract<Visual, { kind: 'displace' }>) {
+  return (
+    <figure className="visual displace">
+      <div className="displace-row">
+        <div>
+          <CylinderSvg max={v.max} major={v.major} minor={v.minor} level={v.before} caption={false} />
+          <p className="displace-tag">לפני</p>
+        </div>
+        <div>
+          <CylinderSvg max={v.max} major={v.major} minor={v.minor} level={v.after} stone caption={false} />
+          <p className="displace-tag">אחרי שהוכנסה אבן</p>
+        </div>
+      </div>
+      <figcaption>שנתות ממוספרות כל {v.major} מ״ל, וכל שנתה קטנה שווה {v.minor} מ״ל.</figcaption>
+    </figure>
+  )
+}
+
 export function VisualView({ visual }: { visual: Visual }) {
   if (visual.kind === 'balance') return <BalanceSvg weights={visual.weights} tilt={visual.tilt} />
   if (visual.kind === 'cylinder') return <CylinderSvg {...visual} />
+  if (visual.kind === 'box') return <BoxSvg {...visual} />
+  if (visual.kind === 'displace') return <DisplaceView {...visual} />
   return <AirChart />
 }
 
@@ -201,6 +248,49 @@ export function CylinderDemo() {
       <p className="status-line" aria-live="polite">
         השנתה הממוספרת מתחת למפלס: {base}
         {steps > 0 ? `, ועוד ${steps} × ${minor} מ״ל` : ''}. הנפח: <b>{fmt(level)} מ״ל</b>.
+      </p>
+    </div>
+  )
+}
+
+export function BoxDemo() {
+  const [d, setD] = useState({ l: 4, w: 3, h: 2 })
+  const set = (k: 'l' | 'w' | 'h', delta: number) => setD({ ...d, [k]: Math.max(1, Math.min(10, d[k] + delta)) })
+  const names = { l: 'אורך', w: 'רוחב', h: 'גובה' } as const
+  return (
+    <div className="demo">
+      <p className="demo-title">נסה בעצמך: שנה את המידות וראה את הנפח</p>
+      <BoxSvg {...d} />
+      <div className="demo-controls">
+        {(['l', 'w', 'h'] as const).map((k) => (
+          <span key={k} className="stepper" role="group" aria-label={names[k]}>
+            <button type="button" className="btn small ghost" onClick={() => set(k, -1)} aria-label={`הקטן ${names[k]}`}>-</button>
+            <span>{names[k]} {d[k]}</span>
+            <button type="button" className="btn small ghost" onClick={() => set(k, 1)} aria-label={`הגדל ${names[k]}`}>+</button>
+          </span>
+        ))}
+      </div>
+      <p className="status-line" aria-live="polite">
+        <bdi dir="ltr">{d.l} × {d.w} × {d.h} = {d.l * d.w * d.h}</bdi> סמ״ק: נכנסות בתיבה {d.l * d.w * d.h} קוביות של 1 סמ״ק.
+      </p>
+    </div>
+  )
+}
+
+export function DisplaceDemo() {
+  const before = 40
+  const [stone, setStone] = useState(false)
+  return (
+    <div className="demo">
+      <p className="demo-title">נסה בעצמך: הכנס את האבן למשורה</p>
+      <div className="displace-row">
+        <CylinderSvg max={100} major={10} minor={5} level={stone ? before + 15 : before} stone={stone} caption={false} />
+      </div>
+      <div className="demo-controls">
+        <button type="button" className="btn small" onClick={() => setStone(!stone)}>{stone ? 'הוצא את האבן' : 'הכנס את האבן'}</button>
+      </div>
+      <p className="status-line" aria-live="polite">
+        {stone ? <>המפלס עלה מ-40 ל-55 מ״ל. נפח האבן: <bdi dir="ltr">55 - 40 = 15</bdi> מ״ל.</> : 'במשורה 40 מ״ל מים. כל שנתה קטנה שווה 5 מ״ל.'}
       </p>
     </div>
   )

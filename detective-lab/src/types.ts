@@ -2,6 +2,8 @@ export type Visual =
   | { kind: 'balance'; weights: number[]; tilt: 'level' | 'left' | 'right' }
   | { kind: 'cylinder'; max: number; major: number; minor: number; level: number }
   | { kind: 'air' }
+  | { kind: 'box'; l: number; w: number; h: number }
+  | { kind: 'displace'; max: number; major: number; minor: number; before: number; after: number }
 
 interface QBase {
   id: string
@@ -18,19 +20,23 @@ export interface ChoiceQ extends QBase { type: 'choice'; options: string[]; corr
 export interface SortQ extends QBase { type: 'sort'; categories: { id: string; label: string }[]; items: { text: string; cat: string }[] }
 export interface MatchQ extends QBase { type: 'match'; pairs: { left: string; right: string }[] }
 export interface NumberQ extends QBase { type: 'number'; value: number; unit?: string }
+/** סידור: הפריטים רשומים בסדר הנכון, ומוצגים מעורבבים */
+export interface OrderQ extends QBase { type: 'order'; items: string[]; ends: [string, string] }
 
-export type Question = ChoiceQ | SortQ | MatchQ | NumberQ
+export type Question = ChoiceQ | SortQ | MatchQ | NumberQ | OrderQ
 
 export type Relation = [string, string, number]
 export type Generator =
   | { kind: 'balance' }
   | { kind: 'cylinder' }
+  | { kind: 'box' }
+  | { kind: 'displace' }
   | { kind: 'convert'; relations: Relation[] }
   | { kind: 'compare'; relations: Relation[] }
 
 export interface Lesson {
   points: string[]
-  demo?: 'balance' | 'cylinder' | 'air'
+  demo?: 'balance' | 'cylinder' | 'air' | 'box' | 'displace'
   table?: { head: string[]; rows: string[][] }
   example: { prompt: string; steps: string[] }
 }
@@ -96,4 +102,6 @@ export interface Outcome {
   sure: boolean
   repeat: boolean
   warmup: boolean
+  /** תשובה מסימולציית מבחן: לא מסמנת נושא כנלמד ולא משנה את לוח החזרות */
+  exam?: boolean
 }

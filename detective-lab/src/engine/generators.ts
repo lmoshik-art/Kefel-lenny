@@ -149,9 +149,59 @@ function cylinder(level: number, rng: Rng): NumberQ {
   }
 }
 
+function box(level: number, rng: Rng): NumberQ {
+  const pool = level === 1 ? [2, 3, 4, 5] : level === 2 ? [3, 4, 5, 6, 8, 10] : [10, 20, 30, 40, 50, 70]
+  const [l, w, h] = [pick(rng, pool), pick(rng, pool), pick(rng, pool)].sort((a, b) => b - a)
+  const v = l * w * h
+  const calc = `${l} × ${w} × ${h} = ${fmt(v)}`
+  return {
+    id: `gen:box:${l}:${w}:${h}`,
+    level,
+    type: 'number',
+    prompt: `תיבה באורך ${l} ס״מ, ברוחב ${w} ס״מ ובגובה ${h} ס״מ. מהו הנפח שלה בסמ״ק?`,
+    visual: { kind: 'box', l, w, h },
+    value: v,
+    unit: 'סמ״ק',
+    hint: 'נפח תיבה = אורך × רוחב × גובה.',
+    steps: ['נפח תיבה = אורך × רוחב × גובה.', `${calc}.`, `הנפח הוא ${fmt(v)} סמ״ק, כלומר נכנסות בתיבה ${fmt(v)} קוביות של 1 סמ״ק.`],
+    explain: `${calc}, ולכן הנפח הוא ${fmt(v)} סמ״ק.`,
+  }
+}
+
+const DISPLACE = [
+  { max: 100, major: 10, minor: 5 },
+  { max: 100, major: 10, minor: 2 },
+  { max: 50, major: 10, minor: 1 },
+]
+
+function displace(level: number, rng: Rng): NumberQ {
+  const c = DISPLACE[level - 1]
+  const marks: number[] = []
+  for (let v = c.minor * 2; v <= c.max * 0.6; v += c.minor) marks.push(v)
+  const before = pick(rng, marks)
+  const ups: number[] = []
+  for (let d = c.minor; before + d <= c.max * 0.9; d += c.minor) if (d >= c.minor * 2) ups.push(d)
+  const stone = pick(rng, ups)
+  const after = before + stone
+  return {
+    id: `gen:dsp:${c.minor}:${before}:${after}`,
+    level,
+    type: 'number',
+    prompt: 'אותה משורה לפני שהכניסו אבן ואחרי. מהו נפח האבן במ״ל?',
+    visual: { kind: 'displace', ...c, before, after },
+    value: stone,
+    unit: 'מ״ל',
+    hint: `קרא את שני המפלסים. כל שנתה קטנה שווה ${c.minor} מ״ל. נפח האבן = המפלס עם האבן פחות המפלס בהתחלה.`,
+    steps: [`המפלס בהתחלה: ${before} מ״ל. המפלס עם האבן: ${after} מ״ל.`, `${after} פחות ${before} שווה ${stone}.`, `נפח האבן הוא ${stone} מ״ל, שהם ${stone} סמ״ק.`],
+    explain: `${after} פחות ${before} שווה ${stone}, ולכן נפח האבן הוא ${stone} מ״ל.`,
+  }
+}
+
 export function generate(content: Content, g: Generator, level: number, rng: Rng): Question {
   if (g.kind === 'balance') return balance(level, rng)
   if (g.kind === 'cylinder') return cylinder(level, rng)
+  if (g.kind === 'box') return box(level, rng)
+  if (g.kind === 'displace') return displace(level, rng)
   if (g.kind === 'compare') return compare(content, pick(rng, g.relations), Math.max(2, level), rng)
   return convert(content, pick(rng, g.relations), level, rng)
 }

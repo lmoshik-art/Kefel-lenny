@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChoiceQ, MatchQ, NumberQ, Question, SortQ } from '../types.ts'
+import type { ChoiceQ, MatchQ, NumberQ, OrderQ, Question, SortQ } from '../types.ts'
 import { VisualView } from './Visuals.tsx'
 import { Rich } from './Rich.tsx'
 import { fmt, parseNumber, sameNumber } from '../engine/format.ts'
@@ -194,6 +194,48 @@ function NumberView({ q, locked, reveal, register, onChange }: ViewProps<NumberQ
   )
 }
 
+function OrderView({ q, locked, reveal, register, onChange }: ViewProps<OrderQ>) {
+  const initial = useMemo(() => {
+    let o = seededShuffle(q.items, q.id)
+    if (o.every((x, i) => x === q.items[i])) o = [...o.slice(1), o[0]]
+    return o
+  }, [q])
+  const [list, setList] = useState(initial)
+  const [wrongAt, setWrongAt] = useState<number[]>([])
+  register(() => {
+    const bad = list.map((x, i) => (x === q.items[i] ? -1 : i)).filter((i) => i >= 0)
+    setWrongAt(bad)
+    return { ready: true, correct: !bad.length, info: bad.length ? `${bad.length} פריטים לא במקום הנכון. הם מסומנים.` : undefined }
+  })
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d
+    if (j < 0 || j >= list.length) return
+    const next = [...list]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    setList(next)
+    setWrongAt([])
+    onChange()
+  }
+  return (
+    <div className="order">
+      <p className="order-end">{q.ends[0]}</p>
+      <ol className="order-list">
+        {list.map((x, i) => (
+          <li key={x} className={`order-row ${wrongAt.includes(i) ? 'wrong' : ''}`}>
+            <span className="order-text">{x}</span>
+            <span className="order-btns">
+              <button type="button" className="icon-btn" disabled={locked || i === 0} onClick={() => move(i, -1)} aria-label={`הזז למעלה: ${x}`}>▲</button>
+              <button type="button" className="icon-btn" disabled={locked || i === list.length - 1} onClick={() => move(i, 1)} aria-label={`הזז למטה: ${x}`}>▼</button>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="order-end">{q.ends[1]}</p>
+      {reveal && <p className="truth-note">הסדר הנכון: {q.items.join(', ')}</p>}
+    </div>
+  )
+}
+
 interface CardProps {
   q: Question
   mode: 'practice' | 'exam'
@@ -210,6 +252,8 @@ export function QuestionCard({ q, mode, scaffold, onResult, onNext, isLast }: Ca
   const [needAnswer, setNeedAnswer] = useState(false)
   const checker = useRef<Checker>(() => ({ ready: false, correct: false }))
   const feedbackRef = useRef<HTMLDivElement>(null)
+  // חשיפת השאלה הנוכחית לבדיקות אוטומטיות בדפדפן
+  ;(window as unknown as { __q?: Question }).__q = q
   const register = (c: Checker) => {
     checker.current = c
   }
@@ -258,6 +302,7 @@ export function QuestionCard({ q, mode, scaffold, onResult, onNext, isLast }: Ca
         {q.type === 'sort' && <SortView q={q} {...props} />}
         {q.type === 'match' && <MatchView q={q} {...props} />}
         {q.type === 'number' && <NumberView q={q} {...props} />}
+        {q.type === 'order' && <OrderView q={q} {...props} />}
 
         {!locked && (
           <div className="check-row">

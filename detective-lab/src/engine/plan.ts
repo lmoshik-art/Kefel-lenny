@@ -132,10 +132,11 @@ export function markSeen(p: Progress, skillId: string): Progress {
 export function applyOutcome(content: Content, p: Progress, o: Outcome): Progress {
   const today = dayKey()
   const sk = content.skills.find((s) => s.id === o.skillId)!
-  const st = { ...skillState(p, o.skillId), seen: true }
+  const prev = skillState(p, o.skillId)
+  const st = { ...prev, seen: prev.seen || !o.exam }
   st.recent = [...st.recent, o.firstTry].slice(-8)
   st.lastIds = [...st.lastIds.filter((x) => x !== o.qid), o.qid].slice(-6)
-  if (!o.warmup) {
+  if (!o.warmup && !o.exam) {
     if (o.firstTry) {
       st.streak += 1
       if (st.streak >= 2 && st.level < maxLevel(sk)) {

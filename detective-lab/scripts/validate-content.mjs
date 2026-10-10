@@ -1,113 +1,128 @@
-// בדיקת תקינות של קובץ התוכן. רץ אוטומטית לפני כל בנייה, וגם ידנית: npm run validate
+// בדיקת תקינות של קובץ התוכן ושל מחוללי השאלות. רץ לפני כל בנייה: npm run validate
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { generate, maxLevel } from '../src/engine/generators.ts'
+import { decimals, sameNumber } from '../src/engine/format.ts'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const content = JSON.parse(readFileSync(join(root, 'public/content/content.json'), 'utf8'))
 
-const TOPICS = ['body-matter', 'mass', 'volume', 'units', 'air']
-// מונחים שמחוץ לגבולות החומר שנמסר. "משקולות" הוא שם של כלי ולכן מותר
-const BANNED = [/צפיפות/, /לחץ (ה?אוויר|אטמוספ|ה?גז)/, /בלחץ/, /אטום/, /מולקול/, /משוואה/, /משקל(?!ות)/, /כבידה/, /סמ״ק/, /סמ"ק/, /סנטימטר מעוקב/, /\u2014/, /\u2013/, /עישון/, /סיגרי/, /אלכוהול/, /רצח/, /אש\b/, /להבה/, /גפרור/]
-const FACTOR = { 'kg>g': 1000, 'g>kg': 1 / 1000, 'l>ml': 1000, 'ml>l': 1 / 1000 }
-
 const errors = []
-const ids = new Set()
-let count = 0
 const err = (where, msg) => errors.push(`${where}: ${msg}`)
-const close = (a, b) => Math.abs(a - b) < 1e-9
+const topics = new Set(content.topics.map((t) => t.id))
+// מונחים שאינם בחומר. ״כבד/קל מהאוויר״ מותר, כי כך הוא מופיע במצגת
+const BANNED = [/משקל(?!ות)/, /כבידה/, /צפיפות/, /אטום/, /מולקול/, /משוואה/, /\u2014/, /\u2013/, /רצח/, /עישון/, /אלכוהול/]
 
-function scanText(where, obj) {
+function scan(where, obj) {
   const text = JSON.stringify(obj)
-  for (const re of BANNED) if (re.test(text)) err(where, `מכיל מונח אסור או סימן אסור: ${re}`)
+  for (const re of BANNED) if (re.test(text)) err(where, `מכיל מונח או סימן אסור: ${re}`)
 }
 
-function checkTask(t, topic, where) {
-  count++
-  if (!TOPICS.includes(topic)) err(where, `נושא לא מוכר: ${topic}`)
-  if (ids.has(t.id)) err(where, `מזהה כפול: ${t.id}`)
-  ids.add(t.id)
-  if (!t.prompt || !t.explain) err(where, 'חסרים ניסוח שאלה או הסבר')
-  switch (t.type) {
+function checkQuestion(q, where) {
+  if (!q.id || !q.prompt || !q.explain) err(where, 'חסרים מזהה, ניסוח או הסבר')
+  if (!(q.level >= 1 && q.level <= 3)) err(where, 'רמה חייבת להיות 1 עד 3')
+  switch (q.type) {
     case 'choice':
-      if (!Array.isArray(t.options) || t.options.length < 2) err(where, 'מעט מדי אפשרויות')
-      if (!(t.correct >= 0 && t.correct < t.options.length)) err(where, 'אינדקס התשובה מחוץ לטווח')
-      if (new Set(t.options).size !== t.options.length) err(where, 'אפשרויות כפולות')
+      if (!(q.correct >= 0 && q.correct < q.options.length)) err(where, 'אינדקס תשובה שגוי')
+      if (new Set(q.options).size !== q.options.length) err(where, 'אפשרויות כפולות')
       break
     case 'sort': {
-      const cats = new Set(t.categories.map((c) => c.id))
-      for (const it of t.items) if (!cats.has(it.cat)) err(where, `פריט "${it.text}" משויך לקטגוריה שאינה קיימת`)
-      for (const c of cats) if (!t.items.some((it) => it.cat === c)) err(where, `קטגוריה ${c} ריקה`)
-      if (new Set(t.items.map((i) => i.text)).size !== t.items.length) err(where, 'פריטים כפולים')
+      const cats = new Set(q.categories.map((c) => c.id))
+      for (const it of q.items) if (!cats.has(it.cat)) err(where, `קטגוריה לא קיימת: ${it.text}`)
+      for (const c of cats) if (!q.items.some((it) => it.cat === c)) err(where, `קטגוריה ריקה: ${c}`)
+      if (new Set(q.items.map((i) => i.text)).size !== q.items.length) err(where, 'פריטים כפולים')
       break
     }
     case 'match':
-      if (new Set(t.pairs.map((p) => p.left)).size !== t.pairs.length) err(where, 'צד ימין כפול בהתאמה')
-      if (new Set(t.pairs.map((p) => p.right)).size !== t.pairs.length) err(where, 'צד שמאל כפול בהתאמה')
+      if (new Set(q.pairs.map((p) => p.left)).size !== q.pairs.length) err(where, 'צד ימין כפול')
+      if (new Set(q.pairs.map((p) => p.right)).size !== q.pairs.length) err(where, 'צד שמאל כפול')
       break
     case 'number':
-      if (typeof t.value !== 'number') err(where, 'חסר ערך מספרי')
+      if (typeof q.value !== 'number' || !Number.isFinite(q.value)) err(where, 'ערך מספרי לא תקין')
+      if (decimals(q.value) > 4) err(where, `תשובה עם יותר מדי ספרות אחרי הנקודה: ${q.value}`)
+      break
+    case 'order':
+      if (q.items.length < 3 || new Set(q.items).size !== q.items.length) err(where, 'סידור צריך לפחות 3 פריטים שונים')
+      if (!Array.isArray(q.ends) || q.ends.length !== 2) err(where, 'חסרות תוויות לקצוות')
       break
     default:
-      err(where, `סוג משימה לא מוכר: ${t.type}`)
+      err(where, `סוג שאלה לא מוכר: ${q.type}`)
   }
-  if (t.convert) {
-    const f = FACTOR[`${t.convert.from}>${t.convert.to}`]
-    if (!f) err(where, 'המרה לא נתמכת. מותרות רק ק״ג וגרם, ליטר ומיליליטר')
-    else if (!close(t.convert.value * f, t.value)) err(where, `המרה שגויה: ${t.convert.value} ${t.convert.from} אינו ${t.value} ${t.convert.to}`)
+  if (q.visual?.kind === 'balance' && q.type === 'number') {
+    const sum = q.visual.weights.reduce((s, w) => s + w, 0)
+    if (q.visual.tilt !== 'level' || !sameNumber(sum, q.value)) err(where, 'המאזניים לא תואמים לתשובה')
   }
-  if (t.visual?.kind === 'balance') {
-    const sum = t.visual.weights.reduce((s, w) => s + w, 0)
-    if (t.type === 'number' && t.visual.tilt !== 'level') err(where, 'שאלת קריאת מסה חייבת להציג מאזניים מאוזנים')
-    if (t.type === 'number' && !close(sum, t.value)) err(where, `סכום המשקולות ${sum} אינו התשובה ${t.value}`)
-    if (t.type === 'number' && !/ג׳|גרם/.test(t.unit ?? '')) err(where, 'יחידת התשובה במאזניים צריכה להיות גרם')
+  if (q.visual?.kind === 'cylinder') {
+    const { max, major, minor, level } = q.visual
+    if (!Number.isInteger(major / minor) || !Number.isInteger(max / major)) err(where, 'שנתות לא עקביות')
+    if (!Number.isInteger(Math.round((level / minor) * 1e9) / 1e9) || level <= 0 || level > max) err(where, `מפלס ${level} לא על שנתה`)
+    if (q.type === 'number' && !sameNumber(level, q.value)) err(where, 'המפלס לא תואם לתשובה')
   }
-  if (t.visual?.kind === 'cylinder') {
-    const { max, major, minor, level } = t.visual
-    if (!Number.isInteger(major / minor)) err(where, 'השנתות הממוספרות אינן כפולה של השנתות הקטנות')
-    if (!Number.isInteger(max / major)) err(where, 'קצה הסקלה אינו שנתה ממוספרת')
-    if (!Number.isInteger(Math.round((level / minor) * 1e9) / 1e9)) err(where, `המפלס ${level} אינו נופל על שנתה`)
-    if (level <= 0 || level > max) err(where, 'המפלס מחוץ לסקלה')
-    if (t.type === 'number' && !close(level, t.value)) err(where, `המפלס ${level} אינו התשובה ${t.value}`)
+  if (q.visual?.kind === 'displace') {
+    const { max, minor, before, after } = q.visual
+    for (const v of [before, after]) if (!Number.isInteger(Math.round((v / minor) * 1e9) / 1e9) || v <= 0 || v > max) err(where, `מפלס ${v} לא על שנתה`)
+    if (!sameNumber(after - before, q.value)) err(where, 'הפרש המפלסים לא תואם לתשובה')
   }
-  scanText(where, t)
-  if (t.twin) {
-    if (t.twin.type !== t.type) err(where, 'שאלה מקבילה חייבת להיות מאותו סוג')
-    checkTask(t.twin, topic, `${where} (מקבילה)`)
-  }
+  if (q.visual?.kind === 'box' && !sameNumber(q.visual.l * q.visual.w * q.visual.h, q.value)) err(where, 'נפח התיבה לא תואם')
+  scan(where, q)
 }
 
-if (content.cases.length !== 5) err('תיקים', 'צריכים להיות בדיוק חמישה תיקים')
-const caseTopics = content.cases.map((c) => c.topic)
-for (const t of TOPICS) if (!caseTopics.includes(t)) err('תיקים', `אין תיק לנושא ${t}`)
+// מספרים אקראיים קבועים, כדי שהבדיקה תהיה זהה בכל הרצה
+let seed = 12345
+const rng = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
 
-for (const c of content.cases) {
-  const where = `תיק ${c.number}`
-  if (c.explanation.length > 3) err(where, 'ההסבר ארוך משלושה משפטים')
-  if (c.tasks.length < 3 || c.tasks.length > 5) err(where, 'צריכות להיות 3 עד 5 משימות')
-  if (new Set(c.tasks.map((t) => t.type)).size < 2) err(where, 'המשימות צריכות להיות מגוונות')
-  scanText(where, { intro: c.intro, explanation: c.explanation, demo: c.demo, clue: c.clue })
-  for (const t of c.tasks) checkTask(t, c.topic, `${where} / ${t.id}`)
-  if (c.demo.kind === 'balance') {
-    // בדיקה שאפשר לאזן את ההדגמה עם עד ארבע משקולות מהזמינות
-    const ok = (target, n) => target === 0 || (n > 0 && c.demo.available.some((w) => w <= target && ok(target - w, n - 1)))
-    if (!ok(c.demo.objectMass, 4)) err(where, 'אי אפשר לאזן את ההדגמה בעד ארבע משקולות')
+let count = 0
+const ids = new Set()
+for (const sk of content.skills) {
+  const where = `מיומנות ${sk.id}`
+  if (!topics.has(sk.topic)) err(where, `נושא לא מוכר: ${sk.topic}`)
+  if (!sk.lesson?.points?.length || sk.lesson.points.length > 3) err(where, 'בשיעור צריכות להיות 1 עד 3 נקודות')
+  if (!sk.lesson?.example?.steps?.length) err(where, 'חסרה דוגמה פתורה')
+  scan(where, sk.lesson)
+  for (const q of sk.items) {
+    if (ids.has(q.id)) err(where, `מזהה כפול: ${q.id}`)
+    ids.add(q.id)
+    checkQuestion(q, `${where} / ${q.id}`)
+    count++
   }
-  if (c.demo.kind === 'cylinder' && c.demo.start % c.demo.minor !== 0) err(where, 'מפלס ההתחלה בהדגמה אינו על שנתה')
+  // כל רמה צריכה שאלות זמינות: סטטיות או ממחולל
+  for (let lv = 1; lv <= maxLevel(sk); lv++) {
+    if (!sk.generators?.length && !sk.items.some((q) => q.level <= lv)) err(where, `אין שאלות לרמה ${lv}`)
+  }
+  for (const g of sk.generators ?? []) {
+    if (g.relations) {
+      for (const [big, small, f] of g.relations) {
+        if (!content.units[big] || !content.units[small]) err(where, `יחידה לא מוכרת: ${big} או ${small}`)
+        else if (content.units[big].family !== content.units[small].family) err(where, `המרה בין משפחות שונות: ${big}, ${small}`)
+        if (!(f >= 1)) err(where, `מקדם המרה לא תקין: ${f}`)
+      }
+    }
+    for (let lv = 1; lv <= 3; lv++) {
+      for (let n = 0; n < 150; n++) {
+        const q = generate(content, g, lv, rng)
+        checkQuestion(q, `${where} / מחולל ${g.kind} רמה ${lv}`)
+        // בדיקה עצמאית של התשובה בהמרות
+        if (g.kind === 'convert') {
+          const m = q.id.match(/^gen:conv:(\w+):(\w+):([\d.]+)$/)
+          const rel = g.relations.find(([b, s]) => (b === m[1] && s === m[2]) || (b === m[2] && s === m[1]))
+          const v = Number(m[3])
+          const expected = rel[0] === m[1] ? v * rel[2] : v / rel[2]
+          if (!sameNumber(expected, q.value)) err(where, `המרה שגויה: ${q.prompt} -> ${q.value}`)
+          if (decimals(v) > 2) err(where, `ערך שאלה עם יותר מדי ספרות: ${v}`)
+        }
+        if (g.kind === 'compare' && q.options.some((o) => o.startsWith('-'))) err(where, `ערך שלילי בהשוואה: ${q.prompt}`)
+        count++
+      }
+    }
+  }
 }
-
-// אזורי המעבדה: בדיוק שלושה, וכל עוד הם ממתינים אסור שיהיה בהם תוכן
-const labs = content.cases.filter((c) => c.lab)
-if (labs.map((c) => c.topic).sort().join() !== ['air', 'mass', 'volume'].join()) err('מעבדות', 'צריכים להיות אזורי מעבדה למסה, לנפח ולפד״ח בלבד')
-for (const c of labs) if (c.lab.status === 'pending' && c.lab.text) err(`מעבדה ${c.lab.title}`, 'במצב ממתין אסור שיהיה טקסט')
-
-for (const q of content.quiz) checkTask(q, q.topic, `בוחן / ${q.id}`)
-for (const t of TOPICS) if (!content.quiz.some((q) => q.topic === t)) err('בוחן', `אין שאלה בנושא ${t}`)
-scanText('עלילה', content.story)
+for (const [t, n] of Object.entries(content.exam.perTopic)) if (!topics.has(t) || !(n > 0)) err('בוחן', `נושא לא תקין: ${t}`)
+for (const t of topics) if (!content.skills.some((s) => s.topic === t)) err('נושאים', `אין מיומנויות בנושא ${t}`)
 
 if (errors.length) {
-  console.error(`נמצאו ${errors.length} בעיות בתוכן:`)
-  for (const e of errors) console.error(' - ' + e)
+  console.error(`נמצאו ${errors.length} בעיות:`)
+  for (const e of [...new Set(errors)].slice(0, 60)) console.error(' - ' + e)
   process.exit(1)
 }
-console.log(`התוכן תקין: ${count} משימות ושאלות נבדקו, כולן משויכות לחמשת נושאי המבחן.`)
+console.log(`התוכן תקין: ${content.skills.length} מיומנויות, ${count} שאלות ושאלות שנוצרו נבדקו.`)
