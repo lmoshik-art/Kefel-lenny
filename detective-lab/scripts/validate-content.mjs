@@ -25,8 +25,8 @@ const content = JSON.parse(readFileSync(join(root, 'public/content/content.json'
 const errors = []
 const err = (where, msg) => errors.push(`${where}: ${msg}`)
 const topics = new Set(content.topics.map((t) => t.id))
-// מונחים שאינם בחומר. ״כבד/קל מהאוויר״ מותר, כי כך הוא מופיע במצגת
-const BANNED = [/משקל(?!ות)/, /כבידה/, /צפיפות/, /אטום/, /מולקול/, /משוואה/, /\u2014/, /\u2013/, /רצח/, /עישון/, /אלכוהול/]
+// מונחים שאינם בחומר. משקל וצפיפות נוספו לפי דף הסיכום שבספר
+const BANNED = [/אטום/, /מולקול/, /משוואה/, /\u2014/, /\u2013/, /רצח/, /עישון/, /אלכוהול/]
 
 function scan(where, obj) {
   const text = JSON.stringify(obj)
