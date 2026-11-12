@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>לוח מסחר סימולציה</title>
+<style>
+  /* צבעי המערכת. מוגדרים פעם אחת כמשתנים ומוחלפים במצב כהה. */
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --border: #dde1e6;
+    --text: #1b1f24; --text-2: #4b5563; --muted: #6b7280;
+    --accent: #2457a6; --good: #1b7f4b; --bad: #b42318; --warn: #a15c00;
+    --good-bg: #e6f4ec; --bad-bg: #fbe9e7; --warn-bg: #fff4e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216; --surface: #171b21; --border: #2a303a;
+      --text: #e6e8eb; --text-2: #b4bac4; --muted: #8b93a1;
+      --accent: #7aa7ff; --good: #4fc27d; --bad: #ff7b6b; --warn: #f0b24a;
+      --good-bg: #16301f; --bad-bg: #3a1b18; --warn-bg: #3a2c12;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: "Segoe UI", Arial, "Noto Sans Hebrew", sans-serif; font-size: 15px; line-height: 1.5; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border);
+           padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  header h1 { font-size: 18px; margin: 0; }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+  .pill { padding: 3px 10px; border-radius: 999px; font-size: 13px; border: 1px solid var(--border); background: var(--bg); }
+  .pill.good { background: var(--good-bg); color: var(--good); border-color: transparent; }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+  .actions { margin-inline-start: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+           background: var(--surface); color: var(--text); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.danger { color: var(--bad); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .tile .label { color: var(--muted); font-size: 13px; }
+  .tile .value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tile .sub { color: var(--text-2); font-size: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .pos { color: var(--good); } .neg { color: var(--bad); }
+  .empty { color: var(--muted); padding: 8px 0; }
+  .banner { border-radius: 12px; padding: 12px 16px; font-weight: 600; }
+  .banner.bad { background: var(--bad-bg); color: var(--bad); }
+  .banner.warn { background: var(--warn-bg); color: var(--warn); }
+  .hidden { display: none; }
+  .reason { color: var(--text-2); font-size: 13px; }
+  .events { max-height: 320px; overflow: auto; font-size: 13px; }
+  .events div { padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .events .time { color: var(--muted); margin-inline-end: 8px; }
+  .events .warning { color: var(--warn); } .events .error { color: var(--bad); }
+  /* הגרף מצויר בקואורדינטות משמאל לימין; רק הטקסטים בו בעברית */
+  #chart { width: 100%; height: 200px; display: block; direction: ltr; }
+  .tip { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+         padding: 6px 10px; font-size: 13px; pointer-events: none; display: none; }
+  .note { color: var(--muted); font-size: 13px; }
+  /* לוח חום של רווח יומי: ריבוע לכל יום, ירוק לרווח ואדום להפסד, עוצמה לפי הגודל */
+  .heat { display: flex; flex-wrap: wrap; gap: 4px; }
+  .heat div { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border); }
+  .counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .counters div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .counters .n { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .counters .l { color: var(--muted); font-size: 12px; }
+  @media (max-width: 700px) { table { font-size: 12px; } th, td { padding: 4px; } .tile .value { font-size: 18px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>מערכת מסחר אוטומטית, זירת Kraken</h1>
+  <span id="mode" class="pill">סימולציה</span>
+  <span id="status" class="pill">מתחבר</span>
+  <span id="cycle" class="pill">סבב אחרון: אין</span>
+  <div class="actions">
+    <button id="btn-pause">השהה</button>
+    <button id="btn-continue">המשך</button>
+    <button id="btn-close" class="danger">סגור את כל הפוזיציות</button>
+    <button id="btn-resume" class="danger hidden">חדש פעילות אחרי עצירת חירום</button>
+  </div>
+</header>
+<main>
+  <div id="halt-banner" class="banner bad hidden"></div>
+  <div id="error-banner" class="banner warn hidden"></div>
+
+  <section class="tiles">
+    <div class="tile"><div class="label">הון כולל</div><div class="value" id="equity">0</div><div class="sub" id="equity-sub"></div></div>
+    <div class="tile"><div class="label">מזומן פנוי</div><div class="value" id="cash">0</div></div>
+    <div class="tile"><div class="label">רווח/הפסד היום</div><div class="value" id="daily">0</div><div class="sub" id="daily-sub"></div></div>
+    <div class="tile"><div class="label">רווח/הפסד מצטבר</div><div class="value" id="total">0</div><div class="sub" id="total-sub"></div></div>
+    <div class="tile"><div class="label">פוזיציות פתוחות</div><div class="value" id="open-count">0</div><div class="sub" id="open-sub"></div></div>
+    <div class="tile"><div class="label">זוגות נסרקים</div><div class="value" id="pairs">0</div><div class="sub">מול מטבע הציטוט</div></div>
+  </section>
+
+  <section class="card">
+    <h2>עקומת ההון</h2>
+    <div style="position:relative"><svg id="chart" aria-label="עקומת ההון לאורך זמן"></svg><div id="tip" class="tip"></div></div>
+    <div class="note" id="limits"></div>
+  </section>
+
+  <section class="card">
+    <h2>סטטיסטיקה</h2>
+    <div class="tiles" id="stat-tiles"></div>
+    <div class="note" style="margin-top:10px">רווח והפסד לפי יום (ימים שבהם נסגרו עסקאות)</div>
+    <div class="heat" id="heat"></div>
+  </section>
+
+  <section class="card">
+    <h2>מונים מצטברים</h2>
+    <div class="counters" id="counters"></div>
+    <div id="reject-table" style="margin-top:10px"></div>
+  </section>
+
+  <section class="card">
+    <h2>פוזיציות פתוחות</h2>
+    <div id="open-table"></div>
+  </section>
+
+  <section class="card">
+    <h2>מועמדים בסבב האחרון</h2>
+    <div id="cand-table"></div>
+  </section>
+
+  <section class="card">
+    <h2>יומן עסקאות</h2>
+    <div id="trades-table"></div>
+  </section>
+
+  <section class="card">
+    <h2>יומן אירועים</h2>
+    <div id="events" class="events"></div>
+  </section>
+</main>
+
+<script>
+// עזרי עיצוב מספרים
+const fmt = (n, d = 2) => (n === null || n === undefined) ? "" : Number(n).toLocaleString("he-IL", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtPrice = (n) => Number(n).toLocaleString("he-IL", { maximumSignificantDigits: 6 });
+const signed = (n, d = 2) => (n >= 0 ? "+" : "") + fmt(n, d);
+const cls = (n) => n >= 0 ? "pos" : "neg";
+const time = (iso) => iso ? new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
+const dateTime = (iso) => iso ? new Date(iso).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" }) : "";
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function post(path, confirmText) {
+  if (confirmText && !confirm(confirmText)) return;
+  const r = await fetch(path, { method: "POST" });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); alert(e.detail || "הפעולה נכשלה"); }
+  refresh();
+}
+document.getElementById("btn-pause").onclick = () => post("/api/pause");
+document.getElementById("btn-continue").onclick = () => post("/api/continue");
+document.getElementById("btn-close").onclick = () => post("/api/close-all", "לסגור את כל הפוזיציות הפתוחות במחיר השוק?");
+document.getElementById("btn-resume").onclick = () => post("/api/resume-after-halt",
+  "המערכת נעצרה בגלל חריגה ממגבלה קשיחה. לחדש את הפעילות? מדידת ההפסד היומי תתאפס להון הנוכחי.");
+
+function table(headers, rows, empty) {
+  if (!rows.length) return `<div class="empty">${empty}</div>`;
+  return `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function drawChart(history, dayStart, limit) {
+  const svg = document.getElementById("chart");
+  const w = svg.clientWidth || 800, h = 200, pl = 56, pr = 12, pt = 12, pb = 24;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  if (history.length < 2) { svg.innerHTML = `<text x="${w/2}" y="${h/2}" text-anchor="middle" fill="var(--muted)" font-size="14">אין עדיין מספיק נתונים לעקומה</text>`; return; }
+  const vals = history.map(p => p.equity);
+  let lo = Math.min(...vals, limit), hi = Math.max(...vals, dayStart);
+  if (hi - lo < 1e-9) { hi += 1; lo -= 1; }
+  const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+  const x = (i) => pr + (w - pl - pr) * (1 - i / (history.length - 1));   // ציר הזמן מימין לשמאל
+  const y = (v) => pt + (h - pt - pb) * (1 - (v - lo) / (hi - lo));
+  const path = history.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.equity).toFixed(1)}`).join(" ");
+  const ticks = [lo + pad, (lo + hi) / 2, hi - pad];
+  svg.innerHTML = `
+    ${ticks.map(t => `<line x1="${pr}" x2="${w-pl}" y1="${y(t)}" y2="${y(t)}" stroke="var(--border)" stroke-width="1"/>
+      <text x="${w-pl+6}" y="${y(t)+4}" font-size="11" fill="var(--muted)">${fmt(t, 1)}</text>`).join("")}
+    <line x1="${pr}" x2="${w-pl}" y1="${y(limit)}" y2="${y(limit)}" stroke="var(--bad)" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="${pr+4}" y="${y(limit)-4}" font-size="11" fill="var(--bad)">גבול הפסד יומי</text>
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+    <circle id="dot" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" style="display:none"/>
+    <text x="${pr}" y="${h-6}" font-size="11" fill="var(--muted)">${time(history[history.length-1].time)} (אחרון)</text>
+    <text x="${w-pl}" y="${h-6}" font-size="11" fill="var(--muted)" text-anchor="end">${time(history[0].time)}</text>`;
+  const tip = document.getElementById("tip"), dot = svg.querySelector("#dot");
+  svg.onmousemove = (ev) => {
+    const rect = svg.getBoundingClientRect();
+    const mx = (ev.clientX - rect.left) * w / rect.width;
+    const i = Math.round((1 - (mx - pr) / (w - pl - pr)) * (history.length - 1));
+    if (i < 0 || i >= history.length) return;
+    dot.style.display = ""; dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(history[i].equity));
+    tip.style.display = "block"; tip.style.right = (rect.width - (ev.clientX - rect.left) + 12) + "px"; tip.style.top = "8px";
+    tip.textContent = `${dateTime(history[i].time)}: הון ${fmt(history[i].equity)}, מזומן ${fmt(history[i].cash)}`;
+  };
+  svg.onmouseleave = () => { tip.style.display = "none"; dot.style.display = "none"; };
+}
+
+function tile(label, value, sub, klass) {
+  return `<div class="tile"><div class="label">${label}</div><div class="value ${klass || ""}">${value}</div><div class="sub">${sub || ""}</div></div>`;
+}
+
+function renderStats(s) {
+  const st = s.stats, q = s.quote, dd = st.max_drawdown || {};
+  const best = st.best_trade, worst = st.worst_trade;
+  document.getElementById("stat-tiles").innerHTML = [
+    tile("ירידה מרבית מהשיא", fmt(dd.amount || 0) + " " + q, dd.pct ? `${fmt(dd.pct)}% מהשיא` : "טרם נמדדה", dd.amount ? "neg" : ""),
+    tile("עסקה טובה ביותר", best ? signed(best.pnl) + " " + q : "אין", best ? `${esc(best.pair_name)} (${signed(best.pnl_pct)}%)` : "", best ? cls(best.pnl) : ""),
+    tile("עסקה גרועה ביותר", worst ? signed(worst.pnl) + " " + q : "אין", worst ? `${esc(worst.pair_name)} (${signed(worst.pnl_pct)}%)` : "", worst ? cls(worst.pnl) : ""),
+    tile("רווח ממוצע למנצחת", signed(st.avg_win) + " " + q, `${st.wins} עסקאות מנצחות`, "pos"),
+    tile("הפסד ממוצע למפסידה", signed(st.avg_loss) + " " + q, `${st.losses} עסקאות מפסידות`, "neg"),
+    tile("זמן החזקה ממוצע", fmt(st.avg_hold_minutes, 0) + " דקות", `${st.closed_trades} עסקאות סגורות`),
+  ].join("");
+
+  const days = s.daily_pnl || [];
+  const maxAbs = Math.max(1e-9, ...days.map(d => Math.abs(d.pnl)));
+  document.getElementById("heat").innerHTML = days.length ? days.map(d => {
+    const a = 0.25 + 0.75 * Math.abs(d.pnl) / maxAbs;
+    const color = d.pnl >= 0 ? `rgba(27,127,75,${a})` : `rgba(180,35,24,${a})`;
+    return `<div style="background:${color}" title="${d.day}: ${signed(d.pnl)} ${q}, ${d.n} עסקאות"></div>`;
+  }).join("") : `<div class="empty">טרם נסגרו עסקאות</div>`;
+
+  const c = s.counters || {};
+  const since = c.since ? "מאז " + dateTime(c.since) : "טרם החלה ספירה";
+  const items = [["סבבי סריקה", c.cycles], ["מועמדים שנבדקו", c.candidates], ["אותות נפח", c.spikes],
+    ["נפסלו בבדיקת איכות", c.screened_out], ["ללא אישור כניסה", c.no_entry], ["כניסות", c.entries], ["יציאות", c.exits]];
+  document.getElementById("counters").innerHTML = items.map(([l, n]) =>
+    `<div><div class="n">${fmt(n || 0, 0)}</div><div class="l">${l}</div></div>`).join("") +
+    `<div><div class="n" style="font-size:13px">${since}</div><div class="l">תחילת הספירה</div></div>`;
+  const reasons = Object.entries(c.reject_reasons || {}).sort((a, b) => b[1] - a[1]);
+  document.getElementById("reject-table").innerHTML = table(["סיבת פסילה", "פעמים"],
+    reasons.map(([name, n]) => `<tr><td>${esc(name)}</td><td>${fmt(n, 0)}</td></tr>`), "עדיין לא נפסל אף מועמד");
+}
+
+function render(s) {
+  const q = s.quote;
+  document.getElementById("mode").textContent = s.mode === "simulation" ? "סימולציה, ללא כסף" : "כסף אמיתי";
+  const st = document.getElementById("status");
+  if (s.halted) { st.textContent = "עצירת חירום"; st.className = "pill bad"; }
+  else if (s.paused) { st.textContent = "מושהה"; st.className = "pill warn"; }
+  else { st.textContent = "פעיל"; st.className = "pill good"; }
+  document.getElementById("cycle").textContent = "סבב אחרון: " + (s.last_cycle ? time(s.last_cycle) : "טרם בוצע");
+  document.getElementById("btn-resume").classList.toggle("hidden", !s.halted);
+
+  const hb = document.getElementById("halt-banner");
+  hb.classList.toggle("hidden", !s.halted); hb.textContent = s.halted ? "עצירת חירום: " + s.halt_reason : "";
+  const eb = document.getElementById("error-banner");
+  eb.classList.toggle("hidden", !s.last_error); eb.textContent = s.last_error ? "שגיאה אחרונה: " + s.last_error : "";
+
+  document.getElementById("equity").textContent = fmt(s.equity) + " " + q;
+  document.getElementById("equity-sub").textContent = "יתרה התחלתית " + fmt(s.start_balance);
+  document.getElementById("cash").textContent = fmt(s.cash) + " " + q;
+  const d = document.getElementById("daily"); d.textContent = signed(s.daily_pnl) + " " + q; d.className = "value " + cls(s.daily_pnl);
+  document.getElementById("daily-sub").textContent = `${signed(s.daily_pnl_pct)}% מהון פותח ${fmt(s.day_start_equity)}`;
+  const t = document.getElementById("total"); t.textContent = signed(s.stats.total_pnl) + " " + q; t.className = "value " + cls(s.stats.total_pnl);
+  document.getElementById("total-sub").textContent = `${s.stats.closed_trades} עסקאות סגורות, ${fmt(s.stats.win_rate_pct, 0)}% מנצחות`;
+  document.getElementById("open-count").textContent = s.open_trades.length;
+  document.getElementById("open-sub").textContent = "מתוך מרבי " + s.limits.max_open_positions;
+  document.getElementById("pairs").textContent = s.tradable_pairs;
+  const L = s.limits;
+  document.getElementById("limits").textContent =
+    `מגבלות קשיחות: הפסד יומי מרבי ${L.max_daily_loss_pct}% (גבול ${fmt(s.daily_loss_limit)} ${q}), ` +
+    `פוזיציה מרבית ${L.max_position_pct}%, סיכון לעסקה ${L.risk_per_trade_pct}%, סטופ ${L.stop_loss_pct}%, יעד ${L.take_profit_pct}%` +
+    (L.trailing_stop_pct > 0 ? `, סטופ נגרר מ-${L.trailing_start_pct}% במרחק ${L.trailing_stop_pct}% מהשיא.` : ".");
+
+  drawChart(s.balance_history, s.day_start_equity, s.daily_loss_limit);
+  renderStats(s);
+
+  document.getElementById("open-table").innerHTML = table(
+    ["זוג", "כניסה", "מחיר כניסה", "מחיר נוכחי", "שיא", "כמות", "עלות", "שווי", "רווח/הפסד", "סטופ", "יעד"],
+    s.open_trades.map(o => `<tr><td>${esc(o.pair)}</td><td>${time(o.entry_time)}</td><td>${fmtPrice(o.entry_price)}</td>
+      <td>${fmtPrice(o.current)}</td><td>${fmtPrice(o.highest_price)}</td><td>${fmtPrice(o.qty)}</td><td>${fmt(o.cost)}</td><td>${fmt(o.value)}</td>
+      <td class="${cls(o.pnl)}">${signed(o.pnl)} (${signed(o.pnl_pct)}%)</td>
+      <td>${fmtPrice(o.stop_loss)}${o.trailing ? ' <span class="pill good" title="הסטופ נגרר אחרי השיא ונועל רווח">נגרר</span>' : ""}</td><td>${fmtPrice(o.take_profit)}</td></tr>
+      <tr><td colspan="11" class="reason">${esc(o.entry_reason)}</td></tr>`),
+    "אין פוזיציות פתוחות");
+
+  document.getElementById("cand-table").innerHTML = table(
+    ["זוג", "מחיר", "שינוי יומי", "נפח 24 שעות", "יחס נפח", "קפיצת נפח", "חדש", "נפתחה"],
+    s.candidates.map(c => `<tr><td>${esc(c.pair)}</td><td>${fmtPrice(c.last)}</td><td class="${cls(c.change_pct)}">${signed(c.change_pct)}%</td>
+      <td>${fmt(c.volume_24h, 0)}</td><td>${c.spike_ratio ?? ""}</td><td>${c.spike ? "כן" : "לא"}</td><td>${c.is_new ? "כן" : ""}</td><td>${c.opened ? "כן" : ""}</td></tr>`),
+    s.halted || s.paused ? "הסריקה מושהית" : "טרם בוצע סבב סריקה");
+
+  document.getElementById("trades-table").innerHTML = table(
+    ["#", "זוג", "מצב", "כניסה", "מחיר כניסה", "יציאה", "מחיר יציאה", "עלות", "רווח/הפסד"],
+    s.recent_trades.map(r => `<tr><td>${r.id}</td><td>${esc(r.pair_name)}</td><td>${r.status === "open" ? "פתוחה" : "סגורה"}</td>
+      <td>${dateTime(r.entry_time)}</td><td>${fmtPrice(r.entry_price)}</td><td>${dateTime(r.exit_time)}</td>
+      <td>${r.exit_price != null ? fmtPrice(r.exit_price) : ""}</td><td>${fmt(r.cost)}</td>
+      <td class="${r.pnl != null ? cls(r.pnl) : ""}">${r.pnl != null ? signed(r.pnl) + " (" + signed(r.pnl_pct) + "%)" : ""}</td></tr>
+      <tr><td colspan="9" class="reason">כניסה: ${esc(r.entry_reason)}${r.exit_reason ? "<br>יציאה: " + esc(r.exit_reason) : ""}</td></tr>`),
+    "טרם בוצעו עסקאות");
+
+  document.getElementById("events").innerHTML = s.events.map(e =>
+    `<div class="${e.level}"><span class="time">${time(e.time)}</span>${esc(e.message)}</div>`).join("") || `<div class="empty">אין אירועים</div>`;
+}
+
+async function refresh() {
+  try {
+    const r = await fetch("/api/state");
+    render(await r.json());
+  } catch (e) {
+    const st = document.getElementById("status"); st.textContent = "אין חיבור לשרת"; st.className = "pill bad";
+  }
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "error": [],
+  "result": {
+    "XXBTZUSD": {"altname": "XBTUSD", "wsname": "XBT/USD", "aclass_base": "currency", "base": "XXBT",
+      "aclass_quote": "currency", "quote": "ZUSD", "lot": "unit", "pair_decimals": 1, "lot_decimals": 8,
+      "fees": [[0, 0.4], [10000, 0.35]], "fees_maker": [[0, 0.25]], "ordermin": "0.00005",
+      "costmin": "0.5", "tick_size": "0.1", "status": "online"},
+    "USDTZUSD": {"altname": "USDTUSD", "wsname": "USDT/USD", "base": "USDT", "quote": "ZUSD",
+      "pair_decimals": 4, "lot_decimals": 8, "fees": [[0, 0.2]], "ordermin": "5", "costmin": "0.5", "status": "online"},
+    "XETHZEUR": {"altname": "ETHEUR", "wsname": "ETH/EUR", "base": "XETH", "quote": "ZEUR",
+      "pair_decimals": 2, "lot_decimals": 8, "fees": [[0, 0.4]], "ordermin": "0.002", "costmin": "0.45", "status": "online"},
+    "ABCUSD": {"altname": "ABCUSD", "wsname": "ABC/USD", "base": "ABC", "quote": "ZUSD",
+      "pair_decimals": 4, "lot_decimals": 8, "fees": [[0, 0.4]], "ordermin": "1", "costmin": "0.5", "status": "cancel_only"}
+  }
+}
