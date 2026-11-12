@@ -59,7 +59,8 @@ class TradingBot:
                                 settings.risk_per_trade_pct, settings.max_open_positions,
                                 settings.stop_loss_pct)
         self.strategy = Strategy(settings.stop_loss_pct, settings.take_profit_pct,
-                                 settings.max_hold_minutes)
+                                 settings.max_hold_minutes, settings.trailing_start_pct,
+                                 settings.trailing_stop_pct)
 
         # מצב שנטען מהיומן
         self.cash: float = journal.get_state("cash", settings.start_balance)
@@ -171,6 +172,15 @@ class TradingBot:
             ticker = self.tickers.get(trade.pair_id)
             if ticker is None:
                 continue
+            # סטופ נגרר: עדכון השיא והסטופ לפני בדיקת היציאה
+            update = self.strategy.update_stop(trade, ticker)
+            if update.highest_price != trade.highest_price or update.moved:
+                self.journal.update_stop(trade.id, update.stop_loss, update.highest_price, update.trailing)
+                trade.stop_loss, trade.highest_price, trade.trailing = (
+                    update.stop_loss, update.highest_price, update.trailing)
+            if update.moved:
+                self._event(f"סטופ נגרר {trade.pair_name}: הועלה ל-{update.stop_loss:.6g} "
+                            f"(שיא {update.highest_price:.6g})")
             decision = self.strategy.should_exit(trade, ticker, now)
             if decision.exit:
                 self._close_position(trade, ticker, decision.reason)
@@ -330,6 +340,7 @@ class TradingBot:
                 "entry_price": t.entry_price, "qty": t.qty, "cost": t.cost, "current": bid,
                 "value": value, "pnl": value - t.cost, "pnl_pct": (value - t.cost) / t.cost * 100 if t.cost else 0,
                 "stop_loss": t.stop_loss, "take_profit": t.take_profit, "entry_reason": t.entry_reason,
+                "highest_price": t.highest_price, "trailing": t.trailing,
             })
         daily_pnl = equity - self.day_start_equity
         return {
@@ -343,7 +354,9 @@ class TradingBot:
                        "max_position_pct": self.s.max_position_pct,
                        "risk_per_trade_pct": self.s.risk_per_trade_pct,
                        "max_open_positions": self.s.max_open_positions,
-                       "stop_loss_pct": self.s.stop_loss_pct, "take_profit_pct": self.s.take_profit_pct},
+                       "stop_loss_pct": self.s.stop_loss_pct, "take_profit_pct": self.s.take_profit_pct,
+                       "trailing_start_pct": self.s.trailing_start_pct,
+                       "trailing_stop_pct": self.s.trailing_stop_pct},
             "open_trades": open_trades, "candidates": self.last_candidates,
             "recent_trades": self.journal.recent_trades(30), "stats": self.journal.stats(),
             "counters": self.counters, "daily_pnl": self.journal.daily_pnl(60),

@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS trades (
     entry_slippage_pct REAL NOT NULL,
     stop_loss REAL NOT NULL,
     take_profit REAL NOT NULL,
+    highest_price REAL,                -- המחיר הגבוה ביותר (bid) מאז הכניסה, לסטופ הנגרר
+    trailing INTEGER NOT NULL DEFAULT 0,  -- 1 אם הסטופ כבר נגרר (הועלה מעל הסטופ המקורי)
     entry_reason TEXT NOT NULL,
     screen_report TEXT NOT NULL,       -- JSON
     exit_time TEXT,
@@ -88,6 +90,8 @@ class OpenTrade:
     stop_loss: float
     take_profit: float
     entry_reason: str
+    highest_price: float = 0.0
+    trailing: bool = False
 
 
 def _iso(dt: datetime) -> str:
@@ -101,7 +105,16 @@ class Journal:
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """הוספת עמודות שנוספו בגרסאות מאוחרות לבסיס נתונים קיים, בלי לאבד נתונים."""
+        existing = {r["name"] for r in self._conn.execute("PRAGMA table_info(trades)")}
+        if "highest_price" not in existing:
+            self._conn.execute("ALTER TABLE trades ADD COLUMN highest_price REAL")
+        if "trailing" not in existing:
+            self._conn.execute("ALTER TABLE trades ADD COLUMN trailing INTEGER NOT NULL DEFAULT 0")
 
     def close(self) -> None:
         self._conn.close()
@@ -157,8 +170,15 @@ class Journal:
                VALUES (?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (pair_id, pair_name, _iso(now), entry_price, qty, cost, entry_fee, slippage_pct,
              stop_loss, take_profit, entry_reason, json.dumps(screen_report, ensure_ascii=False)))
+        self._conn.execute("UPDATE trades SET highest_price = ? WHERE id = ?", (entry_price, cur.lastrowid))
         self._conn.commit()
         return int(cur.lastrowid)
+
+    def update_stop(self, trade_id: int, stop_loss: float, highest_price: float, trailing: bool) -> None:
+        """עדכון הסטופ והשיא של עסקה פתוחה (סטופ נגרר)."""
+        self._conn.execute("UPDATE trades SET stop_loss = ?, highest_price = ?, trailing = ? WHERE id = ?",
+                           (stop_loss, highest_price, int(trailing), trade_id))
+        self._conn.commit()
 
     def close_trade(self, trade_id: int, now: datetime, exit_price: float, exit_fee: float,
                     proceeds: float, exit_reason: str) -> dict:
@@ -179,7 +199,8 @@ class Journal:
         rows = self._conn.execute("SELECT * FROM trades WHERE status='open' ORDER BY id").fetchall()
         return [OpenTrade(r["id"], r["pair_id"], r["pair_name"], datetime.fromisoformat(r["entry_time"]),
                           r["entry_price"], r["qty"], r["cost"], r["stop_loss"], r["take_profit"],
-                          r["entry_reason"]) for r in rows]
+                          r["entry_reason"], r["highest_price"] or r["entry_price"], bool(r["trailing"]))
+                for r in rows]
 
     def recent_trades(self, limit: int = 30) -> list[dict]:
         rows = self._conn.execute("SELECT * FROM trades ORDER BY id DESC LIMIT ?", (limit,)).fetchall()

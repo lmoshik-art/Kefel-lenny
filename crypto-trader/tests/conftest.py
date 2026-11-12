@@ -23,6 +23,7 @@ def settings(tmp_path) -> Settings:
         volume_spike_ratio=3.0, min_price_change_pct=1.0, min_volume_24h=200000.0, max_spread_pct=0.8,
         new_pair_wait_minutes=30, ohlc_candidates=12, sim_slippage_pct=0.1, default_taker_fee_pct=0.4,
         scan_interval_seconds=60, host="127.0.0.1", port=8000, db_path=tmp_path / "test.db",
+        trailing_start_pct=3.0, trailing_stop_pct=2.0,
     )
 
 

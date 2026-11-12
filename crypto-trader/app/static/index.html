@@ -264,17 +264,19 @@ function render(s) {
   const L = s.limits;
   document.getElementById("limits").textContent =
     `מגבלות קשיחות: הפסד יומי מרבי ${L.max_daily_loss_pct}% (גבול ${fmt(s.daily_loss_limit)} ${q}), ` +
-    `פוזיציה מרבית ${L.max_position_pct}%, סיכון לעסקה ${L.risk_per_trade_pct}%, סטופ ${L.stop_loss_pct}%, יעד ${L.take_profit_pct}%.`;
+    `פוזיציה מרבית ${L.max_position_pct}%, סיכון לעסקה ${L.risk_per_trade_pct}%, סטופ ${L.stop_loss_pct}%, יעד ${L.take_profit_pct}%` +
+    (L.trailing_stop_pct > 0 ? `, סטופ נגרר מ-${L.trailing_start_pct}% במרחק ${L.trailing_stop_pct}% מהשיא.` : ".");
 
   drawChart(s.balance_history, s.day_start_equity, s.daily_loss_limit);
   renderStats(s);
 
   document.getElementById("open-table").innerHTML = table(
-    ["זוג", "כניסה", "מחיר כניסה", "מחיר נוכחי", "כמות", "עלות", "שווי", "רווח/הפסד", "סטופ", "יעד"],
+    ["זוג", "כניסה", "מחיר כניסה", "מחיר נוכחי", "שיא", "כמות", "עלות", "שווי", "רווח/הפסד", "סטופ", "יעד"],
     s.open_trades.map(o => `<tr><td>${esc(o.pair)}</td><td>${time(o.entry_time)}</td><td>${fmtPrice(o.entry_price)}</td>
-      <td>${fmtPrice(o.current)}</td><td>${fmtPrice(o.qty)}</td><td>${fmt(o.cost)}</td><td>${fmt(o.value)}</td>
-      <td class="${cls(o.pnl)}">${signed(o.pnl)} (${signed(o.pnl_pct)}%)</td><td>${fmtPrice(o.stop_loss)}</td><td>${fmtPrice(o.take_profit)}</td></tr>
-      <tr><td colspan="10" class="reason">${esc(o.entry_reason)}</td></tr>`),
+      <td>${fmtPrice(o.current)}</td><td>${fmtPrice(o.highest_price)}</td><td>${fmtPrice(o.qty)}</td><td>${fmt(o.cost)}</td><td>${fmt(o.value)}</td>
+      <td class="${cls(o.pnl)}">${signed(o.pnl)} (${signed(o.pnl_pct)}%)</td>
+      <td>${fmtPrice(o.stop_loss)}${o.trailing ? ' <span class="pill good" title="הסטופ נגרר אחרי השיא ונועל רווח">נגרר</span>' : ""}</td><td>${fmtPrice(o.take_profit)}</td></tr>
+      <tr><td colspan="11" class="reason">${esc(o.entry_reason)}</td></tr>`),
     "אין פוזיציות פתוחות");
 
   document.getElementById("cand-table").innerHTML = table(

@@ -75,6 +75,11 @@ class Settings:
     port: int
     db_path: Path
 
+    # סטופ נגרר: מופעל אחרי עלייה של trailing_start_pct מעל הכניסה, ואז נשמר trailing_stop_pct
+    # מתחת לשיא. ערך 0 ב-trailing_stop_pct מכבה את המנגנון.
+    trailing_start_pct: float = 3.0
+    trailing_stop_pct: float = 2.0
+
     @property
     def is_simulation(self) -> bool:
         return self.mode == "simulation"
@@ -118,8 +123,15 @@ def load_settings(env_file: Path | None = None) -> Settings:
         host=os.getenv("HOST", "127.0.0.1").strip(),
         port=_int("PORT", 8000, low=1, high=65535),
         db_path=db_path,
+        trailing_start_pct=_float("TRAILING_START_PCT", 3, low=0, high=1000),
+        trailing_stop_pct=_float("TRAILING_STOP_PCT", 2, low=0, high=90),
     )
 
+    if 0 < settings.trailing_stop_pct and settings.trailing_stop_pct > settings.trailing_start_pct:
+        raise ConfigError(
+            "TRAILING_STOP_PCT לא יכול להיות גדול מ-TRAILING_START_PCT, אחרת הסטופ הנגרר יתחיל מתחת למחיר הכניסה "
+            f"({settings.trailing_stop_pct} מול {settings.trailing_start_pct})"
+        )
     if settings.risk_per_trade_pct > settings.max_position_pct:
         raise ConfigError(
             "RISK_PER_TRADE_PCT לא יכול להיות גדול מ-MAX_POSITION_PCT "
