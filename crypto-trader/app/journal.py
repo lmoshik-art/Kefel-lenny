@@ -116,6 +116,14 @@ class Journal:
                            (key, json.dumps(value)))
         self._conn.commit()
 
+    # ---------- מונים מצטברים ----------
+    def get_counters(self) -> dict:
+        """המונים המצטברים של הסריקה (סבבים, מועמדים, אותות, פסילות, כניסות, יציאות)."""
+        return self.get_state("counters", {}) or {}
+
+    def set_counters(self, counters: dict) -> None:
+        self.set_state("counters", counters)
+
     # ---------- אירועים ----------
     def log_event(self, message: str, level: str = "info", now: datetime | None = None) -> None:
         self._conn.execute("INSERT INTO events (time, level, message) VALUES (?, ?, ?)",
@@ -183,14 +191,60 @@ class Journal:
         return result
 
     def stats(self) -> dict:
-        """סטטיסטיקה מצטברת של העסקאות הסגורות."""
+        """סטטיסטיקה מצטברת של העסקאות הסגורות.
+
+        בנוסף לספירה, לרווח הכולל ולאחוז המנצחות: רווח ממוצע לעסקה מנצחת, הפסד
+        ממוצע לעסקה מפסידה, העסקה הטובה והגרועה ביותר, זמן החזקה ממוצע בדקות,
+        והירידה המרבית מהשיא (drawdown) לפי עקומת ההון.
+        """
         row = self._conn.execute(
             """SELECT COUNT(*) AS n, COALESCE(SUM(pnl), 0) AS total_pnl,
-               COALESCE(SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), 0) AS wins
+               COALESCE(SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), 0) AS wins,
+               COALESCE(SUM(CASE WHEN pnl > 0 THEN pnl ELSE 0 END), 0) AS win_sum,
+               COALESCE(SUM(CASE WHEN pnl <= 0 THEN pnl ELSE 0 END), 0) AS loss_sum,
+               COALESCE(SUM(CASE WHEN pnl <= 0 THEN 1 ELSE 0 END), 0) AS losses,
+               AVG((julianday(exit_time) - julianday(entry_time)) * 1440) AS avg_hold_min
                FROM trades WHERE status='closed'""").fetchone()
         n = row["n"]
-        return {"closed_trades": n, "total_pnl": row["total_pnl"],
-                "win_rate_pct": (row["wins"] / n * 100) if n else 0.0}
+        best = self._conn.execute(
+            "SELECT pair_name, pnl, pnl_pct FROM trades WHERE status='closed' ORDER BY pnl DESC LIMIT 1").fetchone()
+        worst = self._conn.execute(
+            "SELECT pair_name, pnl, pnl_pct FROM trades WHERE status='closed' ORDER BY pnl ASC LIMIT 1").fetchone()
+        return {
+            "closed_trades": n, "total_pnl": row["total_pnl"],
+            "win_rate_pct": (row["wins"] / n * 100) if n else 0.0,
+            "wins": row["wins"], "losses": row["losses"],
+            "avg_win": (row["win_sum"] / row["wins"]) if row["wins"] else 0.0,
+            "avg_loss": (row["loss_sum"] / row["losses"]) if row["losses"] else 0.0,
+            "best_trade": dict(best) if best else None,
+            "worst_trade": dict(worst) if worst else None,
+            "avg_hold_minutes": row["avg_hold_min"] or 0.0,
+            "max_drawdown": self.max_drawdown(),
+        }
+
+    def max_drawdown(self) -> dict:
+        """הירידה המרבית מהשיא לפי עקומת ההון: הפער הגדול ביותר בין שיא קודם לשפל שאחריו."""
+        rows = self._conn.execute("SELECT time, equity FROM balance_history ORDER BY id").fetchall()
+        peak = None
+        peak_time = ""
+        worst = {"amount": 0.0, "pct": 0.0, "peak_time": None, "trough_time": None}
+        for r in rows:
+            eq = r["equity"]
+            if peak is None or eq > peak:
+                peak, peak_time = eq, r["time"]
+                continue
+            drop = peak - eq
+            if drop > worst["amount"]:
+                worst = {"amount": drop, "pct": (drop / peak * 100) if peak else 0.0,
+                         "peak_time": peak_time, "trough_time": r["time"]}
+        return worst
+
+    def daily_pnl(self, days: int = 60) -> list[dict]:
+        """רווח והפסד לפי יום (תאריך היציאה), לעסקאות סגורות, עד days הימים האחרונים שבהם היו עסקאות."""
+        rows = self._conn.execute(
+            """SELECT substr(exit_time, 1, 10) AS day, COALESCE(SUM(pnl), 0) AS pnl, COUNT(*) AS n
+               FROM trades WHERE status='closed' GROUP BY day ORDER BY day DESC LIMIT ?""", (days,)).fetchall()
+        return [dict(r) for r in reversed(rows)]
 
     def pnl_since(self, since: datetime) -> float:
         row = self._conn.execute(

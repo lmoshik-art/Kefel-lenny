@@ -214,6 +214,19 @@ def test_rejection_logged_once_per_reason(settings, journal):
     assert len(messages) == 2
 
 
+def test_rejection_with_changing_numbers_logged_once(settings, journal):
+    """פסילה מאותה בדיקה נרשמת פעם אחת גם כשהמספרים בהודעה (מינימום, מרווח) משתנים בין סבבים."""
+    client = FakeClient()
+    bot = make_bot(settings, journal, client)
+    for ask in (1.10, 1.11, 1.12):
+        # מרווח רחב מדי, בערך שונה בכל סבב
+        client.ticker_data["XABCZUSD"] = make_ticker(ask=ask, bid=ask * 0.98, last=ask, open_today=1.0, vwap=1.0)
+        run(bot.run_cycle())
+    messages = [e["message"] for e in journal.recent_events(50) if e["message"].startswith("נפסל")]
+    assert len(messages) == 1
+    assert bot.counters["screened_out"] == 3 and bot.counters["reject_reasons"]["מרווח קנייה-מכירה"] == 3
+
+
 def test_zero_volume_candle_reports_zero_ratio(settings, journal):
     """נר סגור ללא מסחר (נפח 0, כפי ש-Kraken מחזירה) מוצג כיחס 0 ולא כערך חסר."""
     client = FakeClient()
@@ -222,3 +235,61 @@ def test_zero_volume_candle_reports_zero_ratio(settings, journal):
     run(bot.run_cycle())
     assert bot.last_candidates[0]["spike_ratio"] == 0.0
     assert bot.last_candidates[0]["spike"] is False
+
+
+def test_counters_accumulate_and_survive_restart(settings, journal):
+    """המונים המצטברים נספרים נכון, נשמרים ביומן ונטענים אחרי הפעלה מחדש."""
+    client, clock = FakeClient(), Clock()
+    bot = make_bot(settings, journal, client, clock)
+    run(bot.run_cycle())                                  # אות נפח וכניסה
+    c = bot.counters
+    assert c["cycles"] == 1 and c["candidates"] == 1 and c["spikes"] == 1 and c["entries"] == 1
+    assert c["since"] == clock.now.isoformat(timespec="seconds")
+
+    client.candles = make_candles(last_volume=5000, rising=False)   # אות נפח, אך הנר ירד: ללא כניסה
+    client.ticker_data["XABCZUSD"] = make_ticker(pair_id="XABCZUSD", ask=1.1, bid=1.098, last=1.1,
+                                                 open_today=1.0, vwap=1.0, trades=10)
+    bot.journal.close_trade(journal.open_trades()[0].id, clock.now, 1.1, 0.0, 50.0, "בדיקה")
+    run(bot.run_cycle())
+    c = bot.counters
+    assert c["cycles"] == 2 and c["spikes"] == 2
+    # הטיקר עם 10 עסקאות נפסל בבדיקת מספר העסקאות, והסיבה נספרת בשמה
+    assert c["screened_out"] == 1 and c["reject_reasons"]["מספר עסקאות 24 שעות"] == 1
+
+    bot2 = TradingBot(settings, journal, client, clock=clock)
+    assert bot2.counters["cycles"] == 2 and bot2.counters["reject_reasons"]["מספר עסקאות 24 שעות"] == 1
+
+
+def test_stats_depth_and_daily_pnl(settings, journal):
+    """סטטיסטיקות העומק: ממוצעים, טובה וגרועה ביותר, ירידה מרבית מהשיא ורווח יומי."""
+    clock = Clock()
+    t1 = journal.open_trade("A", "A/USD", clock.now, 1.0, 10, 10.0, 0.0, 0.0, 0.97, 1.06, "", {})
+    journal.close_trade(t1, clock.now + timedelta(minutes=30), 1.2, 0.0, 12.0, "יעד")       # +2
+    t2 = journal.open_trade("B", "B/USD", clock.now, 1.0, 10, 10.0, 0.0, 0.0, 0.97, 1.06, "", {})
+    journal.close_trade(t2, clock.now + timedelta(minutes=90), 0.9, 0.0, 9.0, "סטופ")        # -1
+    t3 = journal.open_trade("C", "C/USD", clock.now + timedelta(days=1), 1.0, 10, 10.0, 0.0, 0.0, 0.97, 1.06, "", {})
+    journal.close_trade(t3, clock.now + timedelta(days=1, minutes=60), 0.7, 0.0, 7.0, "סטופ")  # -3
+
+    st = journal.stats()
+    assert st["closed_trades"] == 3 and st["wins"] == 1 and st["losses"] == 2
+    assert abs(st["avg_win"] - 2.0) < 1e-9 and abs(st["avg_loss"] + 2.0) < 1e-9
+    assert st["best_trade"]["pair_name"] == "A/USD" and st["worst_trade"]["pair_name"] == "C/USD"
+    assert abs(st["avg_hold_minutes"] - 60.0) < 0.01
+
+    days = journal.daily_pnl()
+    assert len(days) == 2 and abs(days[0]["pnl"] - 1.0) < 1e-9 and days[0]["n"] == 2
+    assert abs(days[1]["pnl"] + 3.0) < 1e-9
+
+    # עקומת הון: שיא 110, שפל 99, ואז התאוששות. הירידה המרבית היא 11 (10%)
+    for i, eq in enumerate([100, 110, 105, 99, 108]):
+        journal.record_balance(clock.now + timedelta(minutes=i), eq, eq)
+    dd = journal.max_drawdown()
+    assert abs(dd["amount"] - 11.0) < 1e-9 and abs(dd["pct"] - 10.0) < 1e-9
+    assert dd["peak_time"] < dd["trough_time"]
+
+
+def test_stats_empty_journal(journal):
+    """יומן ריק מחזיר ערכי אפס ולא נכשל."""
+    st = journal.stats()
+    assert st["closed_trades"] == 0 and st["best_trade"] is None and st["max_drawdown"]["amount"] == 0.0
+    assert journal.daily_pnl() == []

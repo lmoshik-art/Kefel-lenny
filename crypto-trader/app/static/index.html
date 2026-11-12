@@ -62,6 +62,13 @@
   .tip { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
          padding: 6px 10px; font-size: 13px; pointer-events: none; display: none; }
   .note { color: var(--muted); font-size: 13px; }
+  /* לוח חום של רווח יומי: ריבוע לכל יום, ירוק לרווח ואדום להפסד, עוצמה לפי הגודל */
+  .heat { display: flex; flex-wrap: wrap; gap: 4px; }
+  .heat div { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border); }
+  .counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .counters div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .counters .n { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .counters .l { color: var(--muted); font-size: 12px; }
   @media (max-width: 700px) { table { font-size: 12px; } th, td { padding: 4px; } .tile .value { font-size: 18px; } }
 </style>
 </head>
@@ -95,6 +102,19 @@
     <h2>עקומת ההון</h2>
     <div style="position:relative"><svg id="chart" aria-label="עקומת ההון לאורך זמן"></svg><div id="tip" class="tip"></div></div>
     <div class="note" id="limits"></div>
+  </section>
+
+  <section class="card">
+    <h2>סטטיסטיקה</h2>
+    <div class="tiles" id="stat-tiles"></div>
+    <div class="note" style="margin-top:10px">רווח והפסד לפי יום (ימים שבהם נסגרו עסקאות)</div>
+    <div class="heat" id="heat"></div>
+  </section>
+
+  <section class="card">
+    <h2>מונים מצטברים</h2>
+    <div class="counters" id="counters"></div>
+    <div id="reject-table" style="margin-top:10px"></div>
   </section>
 
   <section class="card">
@@ -180,6 +200,42 @@ function drawChart(history, dayStart, limit) {
   svg.onmouseleave = () => { tip.style.display = "none"; dot.style.display = "none"; };
 }
 
+function tile(label, value, sub, klass) {
+  return `<div class="tile"><div class="label">${label}</div><div class="value ${klass || ""}">${value}</div><div class="sub">${sub || ""}</div></div>`;
+}
+
+function renderStats(s) {
+  const st = s.stats, q = s.quote, dd = st.max_drawdown || {};
+  const best = st.best_trade, worst = st.worst_trade;
+  document.getElementById("stat-tiles").innerHTML = [
+    tile("ירידה מרבית מהשיא", fmt(dd.amount || 0) + " " + q, dd.pct ? `${fmt(dd.pct)}% מהשיא` : "טרם נמדדה", dd.amount ? "neg" : ""),
+    tile("עסקה טובה ביותר", best ? signed(best.pnl) + " " + q : "אין", best ? `${esc(best.pair_name)} (${signed(best.pnl_pct)}%)` : "", best ? cls(best.pnl) : ""),
+    tile("עסקה גרועה ביותר", worst ? signed(worst.pnl) + " " + q : "אין", worst ? `${esc(worst.pair_name)} (${signed(worst.pnl_pct)}%)` : "", worst ? cls(worst.pnl) : ""),
+    tile("רווח ממוצע למנצחת", signed(st.avg_win) + " " + q, `${st.wins} עסקאות מנצחות`, "pos"),
+    tile("הפסד ממוצע למפסידה", signed(st.avg_loss) + " " + q, `${st.losses} עסקאות מפסידות`, "neg"),
+    tile("זמן החזקה ממוצע", fmt(st.avg_hold_minutes, 0) + " דקות", `${st.closed_trades} עסקאות סגורות`),
+  ].join("");
+
+  const days = s.daily_pnl || [];
+  const maxAbs = Math.max(1e-9, ...days.map(d => Math.abs(d.pnl)));
+  document.getElementById("heat").innerHTML = days.length ? days.map(d => {
+    const a = 0.25 + 0.75 * Math.abs(d.pnl) / maxAbs;
+    const color = d.pnl >= 0 ? `rgba(27,127,75,${a})` : `rgba(180,35,24,${a})`;
+    return `<div style="background:${color}" title="${d.day}: ${signed(d.pnl)} ${q}, ${d.n} עסקאות"></div>`;
+  }).join("") : `<div class="empty">טרם נסגרו עסקאות</div>`;
+
+  const c = s.counters || {};
+  const since = c.since ? "מאז " + dateTime(c.since) : "טרם החלה ספירה";
+  const items = [["סבבי סריקה", c.cycles], ["מועמדים שנבדקו", c.candidates], ["אותות נפח", c.spikes],
+    ["נפסלו בבדיקת איכות", c.screened_out], ["ללא אישור כניסה", c.no_entry], ["כניסות", c.entries], ["יציאות", c.exits]];
+  document.getElementById("counters").innerHTML = items.map(([l, n]) =>
+    `<div><div class="n">${fmt(n || 0, 0)}</div><div class="l">${l}</div></div>`).join("") +
+    `<div><div class="n" style="font-size:13px">${since}</div><div class="l">תחילת הספירה</div></div>`;
+  const reasons = Object.entries(c.reject_reasons || {}).sort((a, b) => b[1] - a[1]);
+  document.getElementById("reject-table").innerHTML = table(["סיבת פסילה", "פעמים"],
+    reasons.map(([name, n]) => `<tr><td>${esc(name)}</td><td>${fmt(n, 0)}</td></tr>`), "עדיין לא נפסל אף מועמד");
+}
+
 function render(s) {
   const q = s.quote;
   document.getElementById("mode").textContent = s.mode === "simulation" ? "סימולציה, ללא כסף" : "כסף אמיתי";
@@ -211,6 +267,7 @@ function render(s) {
     `פוזיציה מרבית ${L.max_position_pct}%, סיכון לעסקה ${L.risk_per_trade_pct}%, סטופ ${L.stop_loss_pct}%, יעד ${L.take_profit_pct}%.`;
 
   drawChart(s.balance_history, s.day_start_equity, s.daily_loss_limit);
+  renderStats(s);
 
   document.getElementById("open-table").innerHTML = table(
     ["זוג", "כניסה", "מחיר כניסה", "מחיר נוכחי", "כמות", "עלות", "שווי", "רווח/הפסד", "סטופ", "יעד"],

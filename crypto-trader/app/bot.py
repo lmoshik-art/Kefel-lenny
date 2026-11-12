@@ -27,6 +27,17 @@ from .strategy import Strategy
 log = logging.getLogger("bot")
 
 PAIRS_REFRESH = timedelta(minutes=10)
+EMPTY_COUNTERS = {
+    "since": None,            # תחילת הספירה
+    "cycles": 0,              # סבבי סריקה שהושלמו
+    "candidates": 0,          # מועמדים שנמשכו עבורם נרות
+    "spikes": 0,              # מועמדים שעברו את סף קפיצת הנפח
+    "screened_out": 0,        # נפסלו בבדיקת האיכות
+    "no_entry": 0,            # עברו סינון אך האסטרטגיה לא אישרה כניסה
+    "entries": 0,             # פוזיציות שנפתחו
+    "exits": 0,               # פוזיציות שנסגרו
+    "reject_reasons": {},     # שם הבדיקה שנכשלה -> מספר פעמים
+}
 MAX_CONSECUTIVE_ERRORS = 10
 
 
@@ -57,6 +68,9 @@ class TradingBot:
         self.paused: bool = False
         self.day_key: str = journal.get_state("day_key", "")
         self.day_start_equity: float = journal.get_state("day_start_equity", self.cash)
+        # מונים מצטברים: כמה סבבים, כמה מועמדים נבדקו, כמה אותות נפח, כמה נפסלו ומדוע, כמה כניסות ויציאות
+        self.counters: dict = {**EMPTY_COUNTERS, **journal.get_counters()}
+        self.counters["reject_reasons"] = dict(self.counters.get("reject_reasons") or {})
 
         # מצב זמני לתצוגה
         self.pairs: dict[str, PairInfo] = {}
@@ -77,15 +91,23 @@ class TradingBot:
         self.journal.set_state("halt_reason", self.halt_reason)
         self.journal.set_state("day_key", self.day_key)
         self.journal.set_state("day_start_equity", self.day_start_equity)
+        self.journal.set_counters(self.counters)
+
+    def _count(self, key: str, n: int = 1) -> None:
+        self.counters[key] = self.counters.get(key, 0) + n
 
     def _event(self, message: str, level: str = "info") -> None:
         log.log(logging.WARNING if level in ("warning", "error") else logging.INFO, message)
         self.journal.log_event(message, level, self.clock())
 
-    def _reject(self, pair_id: str, message: str) -> None:
-        """רישום אי-כניסה ביומן רק אם הנימוק לזוג זה השתנה מאז הסבב הקודם."""
-        if self._last_rejection.get(pair_id) != message:
-            self._last_rejection[pair_id] = message
+    def _reject(self, pair_id: str, key: str, message: str) -> None:
+        """רישום אי-כניסה ביומן רק אם סוג הנימוק לזוג זה השתנה מאז הסבב הקודם.
+
+        key הוא סוג הנימוק (למשל שמות הבדיקות שנכשלו), בלי המספרים שמשתנים בכל סבב,
+        כדי שאותה פסילה לא תוצף ביומן רק משום שהמינימום או המרווח זזו מעט.
+        """
+        if self._last_rejection.get(pair_id) != key:
+            self._last_rejection[pair_id] = key
             self._event(message)
 
     def equity(self, tickers: dict[str, Ticker] | None = None) -> float:
@@ -136,6 +158,7 @@ class TradingBot:
         now = self.clock()
         result = self.journal.close_trade(trade.id, now, fill.price, fill.fee, proceeds, reason)
         self.cash += proceeds
+        self._count("exits")
         self._save()
         self.journal.record_balance(now, self.cash, self.equity(), f"סגירת {trade.pair_name}")
         self._event(
@@ -173,12 +196,21 @@ class TradingBot:
 
         report = self.screener.screen(candidate, sizing.cost, now)
         if not report.passed:
-            self._reject(candidate.pair.pair_id, f"נפסל {candidate.pair.wsname}: " + "; ".join(report.failures))
+            self._count("screened_out")
+            for check in report.checks:
+                if not check["ok"]:
+                    reasons = self.counters["reject_reasons"]
+                    reasons[check["name"]] = reasons.get(check["name"], 0) + 1
+            failed_names = ",".join(c["name"] for c in report.checks if not c["ok"])
+            self._reject(candidate.pair.pair_id, "נפסל:" + failed_names,
+                         f"נפסל {candidate.pair.wsname}: " + "; ".join(report.failures))
             return False
 
         decision = self.strategy.should_enter(candidate)
         if not decision.enter:
-            self._reject(candidate.pair.pair_id, f"ללא כניסה {candidate.pair.wsname}: {decision.reason}")
+            self._count("no_entry")
+            self._reject(candidate.pair.pair_id, "ללא כניסה:" + decision.reason,
+                         f"ללא כניסה {candidate.pair.wsname}: {decision.reason}")
             return False
 
         # בדיקה כפולה של המגבלה הקשיחה לפני הביצוע
@@ -200,6 +232,7 @@ class TradingBot:
                                 fill.qty, total_cost, fill.fee, fill.slippage_pct, stop_loss,
                                 take_profit, entry_reason, report.to_dict())
         self.cash -= total_cost
+        self._count("entries")
         self._last_rejection.pop(candidate.pair.pair_id, None)
         self._save()
         self._event(f"כניסה {candidate.pair.wsname}: {fill.qty:.6g} במחיר {fill.price:.6g}, "
@@ -233,6 +266,9 @@ class TradingBot:
             return
 
         candidates = self.scanner.find_candidates(self.pairs, self.tickers, self.s.ohlc_candidates)
+        if not self.counters.get("since"):
+            self.counters["since"] = now.isoformat(timespec="seconds")
+        self._count("cycles")
         summary = []
         for c in candidates:
             try:
@@ -241,6 +277,9 @@ class TradingBot:
                 self._event(f"כשל במשיכת נרות {c.pair.wsname}: {exc}", "warning")
                 continue
             spike = self.scanner.apply_candles(c, candles, self.s.volume_spike_ratio)
+            self._count("candidates")
+            if spike:
+                self._count("spikes")
             opened = self.try_open(c, now) if spike else False
             summary.append({
                 "pair": c.pair.wsname, "last": c.ticker.last,
@@ -250,6 +289,7 @@ class TradingBot:
                 "is_new": c.is_new_pair, "spike": spike, "opened": opened,
             })
         self.last_candidates = summary
+        self.journal.set_counters(self.counters)
 
     async def run_forever(self) -> None:
         self._running = True
@@ -306,6 +346,7 @@ class TradingBot:
                        "stop_loss_pct": self.s.stop_loss_pct, "take_profit_pct": self.s.take_profit_pct},
             "open_trades": open_trades, "candidates": self.last_candidates,
             "recent_trades": self.journal.recent_trades(30), "stats": self.journal.stats(),
+            "counters": self.counters, "daily_pnl": self.journal.daily_pnl(60),
             "events": self.journal.recent_events(60), "balance_history": self.journal.balance_history(300),
             "last_cycle": self.last_cycle.isoformat(timespec="seconds") if self.last_cycle else None,
             "last_error": self.last_error, "tradable_pairs": len(self.scanner.tradable(self.pairs)),
