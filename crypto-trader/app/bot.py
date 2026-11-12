@@ -65,6 +65,8 @@ class TradingBot:
         self.last_cycle: datetime | None = None
         self.last_error: str = ""
         self.consecutive_errors = 0
+        # הנימוק האחרון לאי-כניסה לכל זוג, כדי שלא לרשום ביומן את אותו נימוק בכל סבב
+        self._last_rejection: dict[str, str] = {}
         self._pairs_refreshed: datetime | None = None
         self._running = False
 
@@ -79,6 +81,12 @@ class TradingBot:
     def _event(self, message: str, level: str = "info") -> None:
         log.log(logging.WARNING if level in ("warning", "error") else logging.INFO, message)
         self.journal.log_event(message, level, self.clock())
+
+    def _reject(self, pair_id: str, message: str) -> None:
+        """רישום אי-כניסה ביומן רק אם הנימוק לזוג זה השתנה מאז הסבב הקודם."""
+        if self._last_rejection.get(pair_id) != message:
+            self._last_rejection[pair_id] = message
+            self._event(message)
 
     def equity(self, tickers: dict[str, Ticker] | None = None) -> float:
         """ההון: מזומן ועוד שווי הפוזיציות הפתוחות לפי מחיר ה-bid הנוכחי."""
@@ -165,12 +173,12 @@ class TradingBot:
 
         report = self.screener.screen(candidate, sizing.cost, now)
         if not report.passed:
-            self._event(f"נפסל {candidate.pair.wsname}: " + "; ".join(report.failures))
+            self._reject(candidate.pair.pair_id, f"נפסל {candidate.pair.wsname}: " + "; ".join(report.failures))
             return False
 
         decision = self.strategy.should_enter(candidate)
         if not decision.enter:
-            self._event(f"ללא כניסה {candidate.pair.wsname}: {decision.reason}")
+            self._reject(candidate.pair.pair_id, f"ללא כניסה {candidate.pair.wsname}: {decision.reason}")
             return False
 
         # בדיקה כפולה של המגבלה הקשיחה לפני הביצוע
@@ -192,6 +200,7 @@ class TradingBot:
                                 fill.qty, total_cost, fill.fee, fill.slippage_pct, stop_loss,
                                 take_profit, entry_reason, report.to_dict())
         self.cash -= total_cost
+        self._last_rejection.pop(candidate.pair.pair_id, None)
         self._save()
         self._event(f"כניסה {candidate.pair.wsname}: {fill.qty:.6g} במחיר {fill.price:.6g}, "
                     f"עלות {total_cost:.2f}, סטופ {stop_loss:.6g}, יעד {take_profit:.6g}")
@@ -237,7 +246,7 @@ class TradingBot:
                 "pair": c.pair.wsname, "last": c.ticker.last,
                 "change_pct": round(c.ticker.change_today_pct, 2),
                 "volume_24h": round(c.ticker.quote_volume_24h),
-                "spike_ratio": round(c.volume_spike_ratio, 2) if c.volume_spike_ratio else None,
+                "spike_ratio": round(c.volume_spike_ratio, 2) if c.volume_spike_ratio is not None else None,
                 "is_new": c.is_new_pair, "spike": spike, "opened": opened,
             })
         self.last_candidates = summary

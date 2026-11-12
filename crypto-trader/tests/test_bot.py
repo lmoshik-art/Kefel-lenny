@@ -194,3 +194,31 @@ def test_snapshot_has_dashboard_fields(settings, journal):
                 "events", "balance_history", "limits", "stats"):
         assert key in s
     assert s["daily_loss_limit"] == 50.0
+
+
+def test_rejection_logged_once_per_reason(settings, journal):
+    """פסילה חוזרת של אותו זוג מאותו נימוק נרשמת ביומן פעם אחת בלבד, ולא בכל סבב."""
+    client = FakeClient()
+    client.candles = make_candles(last_volume=5000, rising=False)   # קפיצת נפח, אבל הנר ירד
+    bot = make_bot(settings, journal, client)
+    run(bot.run_cycle())
+    run(bot.run_cycle())
+    run(bot.run_cycle())
+    messages = [e["message"] for e in journal.recent_events(50) if e["message"].startswith("ללא כניסה")]
+    assert len(messages) == 1
+    # כשהנימוק משתנה, נרשם אירוע חדש
+    client.candles = make_candles(last_volume=5000, rising=True)
+    client.ticker_data["XABCZUSD"] = make_ticker(last=1.1, open_today=1.0, ask=1.1, bid=1.098, vwap=1.2)
+    run(bot.run_cycle())
+    messages = [e["message"] for e in journal.recent_events(50) if e["message"].startswith("ללא כניסה")]
+    assert len(messages) == 2
+
+
+def test_zero_volume_candle_reports_zero_ratio(settings, journal):
+    """נר סגור ללא מסחר (נפח 0, כפי ש-Kraken מחזירה) מוצג כיחס 0 ולא כערך חסר."""
+    client = FakeClient()
+    client.candles = make_candles(last_volume=0.0)
+    bot = make_bot(settings, journal, client)
+    run(bot.run_cycle())
+    assert bot.last_candidates[0]["spike_ratio"] == 0.0
+    assert bot.last_candidates[0]["spike"] is False
