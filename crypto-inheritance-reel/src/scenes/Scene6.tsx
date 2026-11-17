@@ -5,7 +5,7 @@ import { easeOut } from "../easing";
 import { SealedDocument } from "../objects/Document";
 import { Envelope } from "../objects/Envelope";
 import { Line, NumberedItem, TextBlock } from "../ui/Text";
-import { ObjectLayer, Place, idle } from "./shared";
+import { ObjectLayer, Place, Sheen, idle } from "./shared";
 
 const HOLD = 20;
 
@@ -19,7 +19,7 @@ export const Scene6: React.FC<{ length: number }> = ({ length }) => {
   const pulse = 0.9 + 0.1 * Math.sin(frame / 14);
   return (
     <>
-      <ObjectLayer sceneLength={length} noExit>
+      <ObjectLayer sceneLength={length} noExit holdFrames={HOLD}>
         <Place x={300} y={1150 + d.y} rotate={-4 + d.r} scale={1.1}>
           <SealedDocument id="s6doc" />
         </Place>
@@ -39,6 +39,7 @@ export const Scene6: React.FC<{ length: number }> = ({ length }) => {
         <Place x={560} y={1205 + e.y} rotate={3 + e.r}>
           <Envelope id="s6env" />
         </Place>
+        <Sheen x={570} y={1225} w={200} h={120} radius={12} start={86} duration={34} />
       </ObjectLayer>
       <TextBlock>
         <Line kind="headline" index={0} sceneLength={length}>{COPY.scene6.headline}</Line>

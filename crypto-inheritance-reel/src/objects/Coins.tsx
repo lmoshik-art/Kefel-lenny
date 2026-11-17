@@ -4,9 +4,16 @@ import { CopperDefs, copperFill } from "./copper";
 // Stack of copper coins. `count` coins are drawn (0..8); the stack is anchored
 // at the bottom so it empties from the top. 200 x 230 viewbox.
 export const COIN_MAX = 8;
-export const CoinStack: React.FC<{ count?: number; id?: string }> = ({ count = COIN_MAX, id = "coins" }) => (
+// `glint` (0..1) sweeps a light band across the coins only (clipped to them).
+export const CoinStack: React.FC<{ count?: number; id?: string; glint?: number }> = ({ count = COIN_MAX, id = "coins", glint = 0 }) => (
   <svg width={200} height={230} viewBox="0 0 200 230">
     <CopperDefs id={id} />
+    <clipPath id={`${id}-clip`}>
+      {Array.from({ length: Math.max(0, Math.min(COIN_MAX, count)) }).map((_, i) => {
+        const y = 200 - i * 22;
+        return <rect key={i} x="20" y={y - 26} width="160" height="34" rx="16" />;
+      })}
+    </clipPath>
     <g filter={`url(#${id}-shadow)`}>
       {Array.from({ length: Math.max(0, Math.min(COIN_MAX, count)) }).map((_, i) => {
         const y = 200 - i * 22;
@@ -19,5 +26,15 @@ export const CoinStack: React.FC<{ count?: number; id?: string }> = ({ count = C
         );
       })}
     </g>
+    {glint > 0 && glint < 1 ? (
+      <g clipPath={`url(#${id}-clip)`}>
+        <linearGradient id={`${id}-glint`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0" />
+          <stop offset="50%" stopColor="#fff" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+        <rect x={-120 + glint * 340} y="0" width="90" height="230" fill={`url(#${id}-glint)`} transform={`skewX(-18)`} />
+      </g>
+    ) : null}
   </svg>
 );

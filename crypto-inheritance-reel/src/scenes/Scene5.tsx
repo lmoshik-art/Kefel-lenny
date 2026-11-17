@@ -17,13 +17,14 @@ export const Scene5: React.FC<{ length: number }> = ({ length }) => {
   const m1 = interpolate(frame, [14, 26], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut });
   const m2 = interpolate(frame, [24, 36], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut });
   const tagIn = interpolate(frame, [30, 42], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut });
-  const slide = interpolate(frame, [48, 118], [FIRST_X, SECOND_X], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeInOut });
+  const slide = interpolate(frame, [48, 134], [FIRST_X, SECOND_X], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeInOut });
   // After reaching the second marker the tag settles onto the coin stack and
   // moves with it from then on.
-  const attach = interpolate(frame, [122, 140], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut });
+  const attach = interpolate(frame, [138, 158], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut });
   const c = idle(frame, 20, 4, 0);
+  const glint = interpolate(frame, [168, 204], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeInOut });
   const tagX = slide + 150 * attach;
-  const tagY = LINE_Y - 86 + (frame < 122 ? idle(frame, 0, 3, 0).y : 0) + (LINE_Y + 110 - (LINE_Y - 86)) * attach + c.y * attach;
+  const tagY = LINE_Y - 86 + (frame < 138 ? idle(frame, 0, 3, 0).y : 0) + (LINE_Y + 110 - (LINE_Y - 86)) * attach + c.y * attach;
   return (
     <>
       <ObjectLayer sceneLength={length}>
@@ -49,7 +50,7 @@ export const Scene5: React.FC<{ length: number }> = ({ length }) => {
           </g>
         </svg>
         <Place x={SECOND_X - 100} y={LINE_Y + 30 + c.y}>
-          <CoinStack id="s5coins" />
+          <CoinStack id="s5coins" glint={glint} />
         </Place>
       </ObjectLayer>
       <TextBlock>

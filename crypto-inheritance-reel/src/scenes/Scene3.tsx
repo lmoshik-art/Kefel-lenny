@@ -6,12 +6,12 @@ import { CoinStack } from "../objects/Coins";
 import { GlassPane } from "../objects/Glass";
 import { CopperKey } from "../objects/Key";
 import { Line, TextBlock } from "../ui/Text";
-import { ObjectLayer, Place, idle } from "./shared";
+import { ObjectLayer, Place, Sheen, idle } from "./shared";
 
 const KEY_X = 110;
 const KEY_Y = 1250;
 const BREAK = 56;
-const GONE = 120;
+const GONE = 126;
 
 // Deterministic pseudo-random particles sourced from the key's bounding box.
 const PARTICLES = Array.from({ length: 30 }).map((_, i) => {
@@ -44,6 +44,7 @@ export const Scene3: React.FC<{ length: number }> = ({ length }) => {
         <Place x={600} y={1080}>
           <GlassPane width={380} height={400} />
         </Place>
+        <Sheen x={600} y={1080} w={380} h={400} radius={24} start={128} duration={44} />
         {/* key, floating until it breaks */}
         <Place x={KEY_X} y={KEY_Y + k.y} rotate={-6 + k.r} scale={keyScale} opacity={keyOpacity}>
           <CopperKey id="s3key" />

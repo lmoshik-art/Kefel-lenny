@@ -11,7 +11,7 @@ export const PILL_GAP_Y = 14;
 export const GRID_W = PILL_W * 3 + PILL_GAP_X * 2;
 export const GRID_H = PILL_H * 4 + PILL_GAP_Y * 3;
 
-export const PillGrid: React.FC<{ opacities: number[]; scale?: number }> = ({ opacities, scale = 1 }) => (
+export const PillGrid: React.FC<{ opacities: number[]; highlights?: number[]; scale?: number }> = ({ opacities, highlights, scale = 1 }) => (
   <div
     dir="ltr"
     style={{
@@ -23,16 +23,19 @@ export const PillGrid: React.FC<{ opacities: number[]; scale?: number }> = ({ op
       transformOrigin: "top left",
     }}
   >
-    {Array.from({ length: 12 }).map((_, i) => (
+    {Array.from({ length: 12 }).map((_, i) => {
+      const hl = highlights?.[i] ?? 0;
+      return (
       <div
         key={i}
         style={{
           width: PILL_W,
           height: PILL_H,
           borderRadius: PILL_H / 2,
-          border: `2px solid ${COLORS.copperMid}`,
-          background: "linear-gradient(135deg, rgba(226,165,116,0.22), rgba(122,65,34,0.22))",
-          boxShadow: "0 10px 18px rgba(0,0,0,0.35)",
+          border: `2px solid ${hl > 0.5 ? COLORS.copperLight : COLORS.copperMid}`,
+          background: `linear-gradient(135deg, rgba(226,165,116,${0.22 + 0.45 * hl}), rgba(122,65,34,${0.22 + 0.3 * hl}))`,
+          boxShadow: `0 10px 18px rgba(0,0,0,0.35), 0 0 ${18 * hl}px rgba(226,165,116,${0.55 * hl})`,
+          scale: String(1 + 0.04 * hl),
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -47,6 +50,7 @@ export const PillGrid: React.FC<{ opacities: number[]; scale?: number }> = ({ op
           {COPY.maskedPill}
         </span>
       </div>
-    ))}
+      );
+    })}
   </div>
 );
