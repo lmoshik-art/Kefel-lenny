@@ -1,18 +1,12 @@
 import React from "react";
-import { COLORS } from "../constants";
-import { CopperDefs, copperFill } from "./copper";
+import { Img, staticFile } from "remotion";
 
-// Copper key, 360 x 120 viewbox, bow on the right, bit on the left.
-export const CopperKey: React.FC<{ id?: string }> = ({ id = "key" }) => (
-  <svg width={360} height={120} viewBox="0 0 360 120">
-    <CopperDefs id={id} />
-    <g filter={`url(#${id}-shadow)`}>
-      <circle cx="290" cy="60" r="52" fill={copperFill(id)} />
-      <circle cx="290" cy="60" r="24" fill={COLORS.bgEdge} />
-      <rect x="40" y="48" width="210" height="24" rx="8" fill={copperFill(id, "copperFlat")} />
-      <rect x="40" y="72" width="22" height="30" rx="4" fill={copperFill(id, "copperV")} />
-      <rect x="76" y="72" width="22" height="22" rx="4" fill={copperFill(id, "copperV")} />
-      <rect x="112" y="72" width="18" height="16" rx="4" fill={copperFill(id, "copperV")} />
-    </g>
-  </svg>
+// Supplied copper key image in a 360 x 120 box, bow on the right, bit on the left.
+export const CopperKey: React.FC<{ id?: string }> = () => (
+  <div style={{ width: 360, height: 120 }}>
+    <Img
+      src={staticFile("assets/key.png")}
+      style={{ width: 334, height: 120, marginLeft: 13, display: "block", filter: "drop-shadow(0 18px 16px rgba(0,0,0,0.45))" }}
+    />
+  </div>
 );
