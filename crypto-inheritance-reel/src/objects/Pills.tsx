@@ -1,13 +1,14 @@
 import React from "react";
+import { Img, staticFile } from "remotion";
 import { COLORS, COPY } from "../constants";
 import { fontFamily } from "../ui/fonts";
 
-// 3 x 4 grid of masked copper pills, numbered 1 to 12. Each pill gets its own
-// opacity so the grid can fade in with a stagger.
-export const PILL_W = 170;
-export const PILL_H = 52;
-export const PILL_GAP_X = 16;
-export const PILL_GAP_Y = 14;
+// 3 x 4 grid of masked copper pills, numbered 1 to 12. The pill body is the
+// supplied image; number and mask dots are drawn on top.
+export const PILL_W = 174;
+export const PILL_H = 49;
+export const PILL_GAP_X = 14;
+export const PILL_GAP_Y = 16;
 export const GRID_W = PILL_W * 3 + PILL_GAP_X * 2;
 export const GRID_H = PILL_H * 4 + PILL_GAP_Y * 3;
 
@@ -26,30 +27,29 @@ export const PillGrid: React.FC<{ opacities: number[]; highlights?: number[]; sc
     {Array.from({ length: 12 }).map((_, i) => {
       const hl = highlights?.[i] ?? 0;
       return (
-      <div
-        key={i}
-        style={{
-          width: PILL_W,
-          height: PILL_H,
-          borderRadius: PILL_H / 2,
-          border: `2px solid ${hl > 0.5 ? COLORS.copperLight : COLORS.copperMid}`,
-          background: `linear-gradient(135deg, rgba(226,165,116,${0.22 + 0.45 * hl}), rgba(122,65,34,${0.22 + 0.3 * hl}))`,
-          boxShadow: `0 10px 18px rgba(0,0,0,0.35), 0 0 ${18 * hl}px rgba(226,165,116,${0.55 * hl})`,
-          scale: String(1 + 0.04 * hl),
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          paddingLeft: 14,
-          paddingRight: 14,
-          opacity: opacities[i] ?? 1,
-          fontFamily,
-        }}
-      >
-        <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.copperText, width: 22 }}>{i + 1}</span>
-        <span style={{ fontSize: 18, letterSpacing: 2, color: COLORS.copperLight, flex: 1, textAlign: "center" }}>
-          {COPY.maskedPill}
-        </span>
-      </div>
+        <div
+          key={i}
+          style={{
+            width: PILL_W,
+            height: PILL_H,
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            paddingLeft: 18,
+            paddingRight: 18,
+            opacity: opacities[i] ?? 1,
+            scale: String(1 + 0.04 * hl),
+            filter: `brightness(${1 + 0.55 * hl}) drop-shadow(0 10px 12px rgba(0,0,0,0.4)) drop-shadow(0 0 ${14 * hl}px rgba(226,165,116,${0.7 * hl}))`,
+            fontFamily,
+          }}
+        >
+          <Img src={staticFile("assets/pill.png")} style={{ position: "absolute", inset: 0, width: PILL_W, height: PILL_H }} />
+          <span style={{ position: "relative", fontSize: 16, fontWeight: 700, color: COLORS.copperText, width: 22 }}>{i + 1}</span>
+          <span style={{ position: "relative", fontSize: 18, letterSpacing: 2, color: COLORS.copperLight, flex: 1, textAlign: "center" }}>
+            {COPY.maskedPill}
+          </span>
+        </div>
       );
     })}
   </div>

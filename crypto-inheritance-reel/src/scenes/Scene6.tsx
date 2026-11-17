@@ -37,9 +37,9 @@ export const Scene6: React.FC<{ length: number }> = ({ length }) => {
           }}
         />
         <Place x={560} y={1205 + e.y} rotate={3 + e.r}>
-          <Envelope id="s6env" />
+          <Envelope />
         </Place>
-        <Sheen x={570} y={1225} w={200} h={120} radius={12} start={86} duration={34} />
+        <Sheen x={562} y={1212} w={236} h={130} radius={10} start={86} duration={34} />
       </ObjectLayer>
       <TextBlock>
         <Line kind="headline" index={0} sceneLength={length}>{COPY.scene6.headline}</Line>

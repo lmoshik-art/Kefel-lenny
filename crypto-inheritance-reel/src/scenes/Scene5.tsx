@@ -1,5 +1,5 @@
 import React from "react";
-import { interpolate, useCurrentFrame } from "remotion";
+import { Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { COLORS, COPY } from "../constants";
 import { easeInOut, easeOut } from "../easing";
 import { CoinStack } from "../objects/Coins";
@@ -41,17 +41,23 @@ export const Scene5: React.FC<{ length: number }> = ({ length }) => {
           />
           <circle cx={FIRST_X} cy={LINE_Y} r={18} fill={copperFill("s5", "copperV")} stroke="rgba(0,0,0,0.35)" strokeWidth={3} opacity={m1} transform={`translate(${FIRST_X} ${LINE_Y}) scale(${0.9 + 0.1 * m1}) translate(${-FIRST_X} ${-LINE_Y})`} />
           <circle cx={SECOND_X} cy={LINE_Y} r={18} fill={copperFill("s5", "copperV")} stroke="rgba(0,0,0,0.35)" strokeWidth={3} opacity={m2} transform={`translate(${SECOND_X} ${LINE_Y}) scale(${0.9 + 0.1 * m2}) translate(${-SECOND_X} ${-LINE_Y})`} />
-          {/* tag: rounded label with a hole and a small coin glyph, no text */}
-          <g transform={`translate(${tagX} ${tagY}) scale(${0.9 + 0.1 * tagIn})`} opacity={tagIn} filter="url(#s5-shadow)">
-            <path d="M-40 -28 H28 L52 0 L28 28 H-40 a8 8 0 0 1 -8 -8 V-20 a8 8 0 0 1 8 -8 Z" fill={copperFill("s5")} stroke="rgba(0,0,0,0.35)" strokeWidth={2} />
-            <circle cx={34} cy={0} r={5} fill={COLORS.bgEdge} />
-            <circle cx={-8} cy={0} r={13} fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth={3} />
-            <circle cx={-8} cy={0} r={6} fill="rgba(0,0,0,0.45)" />
-          </g>
         </svg>
         <Place x={SECOND_X - 100} y={LINE_Y + 30 + c.y}>
           <CoinStack id="s5coins" glint={glint} />
         </Place>
+        <Img
+          src={staticFile("assets/tag.png")}
+          style={{
+            position: "absolute",
+            left: tagX - 62,
+            top: tagY - 26,
+            width: 124,
+            height: 52,
+            opacity: tagIn,
+            scale: String(0.9 + 0.1 * tagIn),
+            filter: "drop-shadow(0 10px 10px rgba(0,0,0,0.45))",
+          }}
+        />
       </ObjectLayer>
       <TextBlock>
         <Line kind="headline" index={0} sceneLength={length}>{COPY.scene5.headline}</Line>
