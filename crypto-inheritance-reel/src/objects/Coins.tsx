@@ -29,7 +29,7 @@ export const CoinStack: React.FC<{ count?: number; id?: string; glint?: number }
                   maskImage: mask,
                   WebkitMaskSize: "100% 100%",
                   maskSize: "100% 100%",
-                  background: `linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,240,220,0.55) 50%, rgba(255,255,255,0) 100%)`,
+                  background: `linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,240,220,0.55) 50%, rgba(255,255,255,0) 100%)`,
                   backgroundSize: "45% 100%",
                   backgroundRepeat: "no-repeat",
                   backgroundPosition: `${-50 + glint * 200}% 0`,

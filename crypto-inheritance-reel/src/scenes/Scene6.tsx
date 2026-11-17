@@ -1,11 +1,11 @@
 import React from "react";
 import { interpolate, useCurrentFrame } from "remotion";
 import { COLORS, COPY } from "../constants";
-import { easeOut } from "../easing";
+import { easeInOut, easeOut } from "../easing";
 import { SealedDocument } from "../objects/Document";
 import { Envelope } from "../objects/Envelope";
 import { Line, NumberedItem, TextBlock } from "../ui/Text";
-import { ObjectLayer, Place, Sheen, idle } from "./shared";
+import { ObjectLayer, Place, idle } from "./shared";
 
 const HOLD = 20;
 
@@ -16,6 +16,7 @@ export const Scene6: React.FC<{ length: number }> = ({ length }) => {
   const d = idle(frame, 0, 5, 1.2);
   const e = idle(frame, 50, 5, 1);
   const glow = interpolate(frame, [40, 80], [0, 0.8], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut });
+  const shine = interpolate(frame, [86, 120], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeInOut });
   const pulse = 0.9 + 0.1 * Math.sin(frame / 14);
   return (
     <>
@@ -37,9 +38,8 @@ export const Scene6: React.FC<{ length: number }> = ({ length }) => {
           }}
         />
         <Place x={560} y={1205 + e.y} rotate={3 + e.r}>
-          <Envelope />
+          <Envelope glint={shine} />
         </Place>
-        <Sheen x={562} y={1212} w={236} h={130} radius={10} start={86} duration={34} />
       </ObjectLayer>
       <TextBlock>
         <Line kind="headline" index={0} sceneLength={length}>{COPY.scene6.headline}</Line>

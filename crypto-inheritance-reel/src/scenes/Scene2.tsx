@@ -11,7 +11,7 @@ import { ObjectLayer, Place, idle } from "./shared";
 const VAULT_X = 100;
 const VAULT_Y = 1120;
 const DOC_START_X = 390;
-const DOC_END_X = 290;
+const DOC_END_X = 320;
 const TAP = 58;
 const NUDGE = 236;
 
